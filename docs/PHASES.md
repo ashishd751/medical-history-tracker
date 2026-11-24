@@ -1,0 +1,83 @@
+# Phases
+
+Each phase ends at a **gate**: acceptance items met, checks green, report delivered, then a pause for
+approval. Never start the next phase unprompted.
+
+## Phase 0 — Foundations and spikes
+
+- [x] Scaffold Expo SDK 58 + Expo Router + TypeScript strict
+- [x] ESLint (flat) + Prettier + Husky + lint-staged + commitlint
+- [x] dependency-cruiser rules for the layer model
+- [x] GitHub Actions CI (doctor, typecheck, lint, dependency rules, tests)
+- [x] Design tokens, Paper theme, base `ui/` components
+- [x] `lib/` primitives: Result, errors, logger, ids (UUIDv7), dates
+- [x] Unit tests for `lib/` (17 tests)
+- [x] Android prebuild + no-camera manifest verification
+- [x] `expo-doctor` 20/20
+- [ ] Spike (a) Paper renders identically on Android + iPhone
+- [ ] Spike (b) expo-sqlite + Drizzle migration on device
+- [ ] Spike (c) new FileSystem API write/read/delete on device
+- [ ] Spike (d) library-only image picker + document picker on device (no camera prompt)
+- [ ] Spike (e) PDF → images
+- [ ] Spike (f) OCR candidate accuracy on 5–10 real samples
+- [ ] Spike (g) expo-print HTML → PDF
+- [ ] Spike (h) zip/unzip a 50-file folder
+- [x] Spike (i) formulary dataset licence check → RxNorm (ADR-009)
+- [ ] Gate report
+
+## Phase 1 — Data core and manual records
+
+- [ ] Drizzle schema + migrations for all tables; repositories; person scoping
+- [ ] First-launch onboarding
+- [ ] Create/edit/delete record with every field
+- [ ] Home snapshot card, records timeline with search/filters, record detail
+- [ ] Repository + migration tests; Maestro manual-create flow
+
+## Phase 2 — Attachments
+
+- [ ] Library image + PDF/file pickers, compression, thumbnails, SHA-256
+- [ ] Relative-path FileStore, orphan sweeper, zoomable viewer
+- [ ] Prescription "upload image or type" control
+- [ ] Files survive restart; deleting a record deletes its files; still no camera permission
+
+## Phase 3 — Profile and measurements (MVP)
+
+- [ ] Measurement history, BMI, BP categories, current-medication rule
+- [ ] `computeProfileDiff` + "Profile updated" sheet with Undo
+- [ ] Blood-type confirmation, backdated-record behaviour
+- [ ] Profile screen with history
+
+## Phase 4 — PDF export
+
+- [ ] Column picker, filters, sort order, profile header, landscape logic, repeated headers
+- [ ] Share via expo-sharing; verified on both platforms; 100+ records
+
+## Phase 5 — Backup and migration
+
+- [ ] Zip bundle with manifest + checksums
+- [ ] Import preview, Replace/Merge, atomic import
+- [ ] Round trip Android → iPhone → Android lossless; corrupted file rejected safely
+
+## Phase 6 — Scan to fill (printed documents)
+
+- [ ] Tier 1 OCR adapter, staging/normalise, PDF pages, classifier
+- [ ] Lab + prescription parsers, formulary matcher
+- [ ] Review form with Check chips and general banner
+
+## Phase 7 — Handwriting hardening
+
+- [ ] Handwriting detection + user override
+- [ ] Persistent handwriting banner, save gate, candidate chips
+- [ ] Thresholds tuned on real samples; honest accuracy table in DECISIONS.md
+
+## Phase 8 — Polish and release
+
+- [ ] Records table view; accessibility audit; empty/error states; dark mode
+- [ ] Signed APK + iOS build; `docs/RELEASE.md`; no camera permission; no network calls
+- [ ] Install on a family phone using the written instructions
+
+## Phase 9 — Optional vision engines
+
+- [ ] Tier 2 on-device VLM spike
+- [ ] Tier 3 bring-your-own-key cloud spike (off by default, per-upload consent, secure key storage)
+- [ ] Accuracy comparison against Tier 1

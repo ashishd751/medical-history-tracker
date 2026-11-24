@@ -1,0 +1,39 @@
+# --- real personal data: NEVER commit ---
+private-samples/
+
+# --- secrets / signing ---
+*.keystore
+*.jks
+*.p12
+*.mobileprovision
+*.p8
+*.pem
+.env
+.env.*
+!env.example
+
+# --- backups / exports (contain real medical data) ---
+*.zip
+medical-history-backup-*
+
+# --- native projects (Continuous Native Generation) ---
+android/
+ios/
+
+# --- build output ---
+build/
+dist/
+web-build/
+coverage/
+*.tsbuildinfo
+expo-env.d.ts
+
+# --- tooling caches ---
+.expo/
+node_modules/
+.DS_Store
+*.log
+
+# --- maestro artifacts ---
+.maestro/screenshots/
+.maestro/tests-output/

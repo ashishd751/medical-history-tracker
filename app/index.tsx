@@ -39,6 +39,11 @@ export default function IndexScreen() {
           variant="secondary"
           onPress={() => router.push('/dev/gallery')}
         />
+        <AppButton
+          label="Run library spikes"
+          variant="quiet"
+          onPress={() => router.push('/dev/spikes')}
+        />
       </View>
     </ScrollView>
   );

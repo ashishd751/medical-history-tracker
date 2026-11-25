@@ -1,0 +1,10 @@
+# Dev-only flow: navigates the design-system spike so screenshots can be captured.
+# Not part of the shipped test suite (Phase 1 adds real flows).
+appId: com.ashishd751.medicalhistory
+---
+- tapOn: 'Close'
+- scrollUntilVisible:
+    element:
+      text: 'Chips'
+    direction: DOWN
+    timeout: 20000

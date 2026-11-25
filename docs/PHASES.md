@@ -14,14 +14,14 @@ approval. Never start the next phase unprompted.
 - [x] Unit tests for `lib/` (17 tests)
 - [x] Android prebuild + no-camera manifest verification
 - [x] `expo-doctor` 20/20
-- [ ] Spike (a) Paper renders identically on Android + iPhone
-- [ ] Spike (b) expo-sqlite + Drizzle migration on device
-- [ ] Spike (c) new FileSystem API write/read/delete on device
+- [x] Spike (a) Paper renders identically on Android + iPhone
+- [x] Spike (b) expo-sqlite + Drizzle migration on device
+- [x] Spike (c) new FileSystem API write/read/delete on device
 - [ ] Spike (d) library-only image picker + document picker on device (no camera prompt)
-- [ ] Spike (e) PDF → images
-- [ ] Spike (f) OCR candidate accuracy on 5–10 real samples
-- [ ] Spike (g) expo-print HTML → PDF
-- [ ] Spike (h) zip/unzip a 50-file folder
+- [x] Spike (e) PDF → images (`react-native-pdf-thumbnail`, ADR-015)
+- [x] Spike (f) OCR candidate accuracy on real samples (ADR-015, ADR-016)
+- [x] Spike (g) expo-print HTML → PDF
+- [x] Spike (h) zip/unzip a 50-file folder
 - [x] Spike (i) formulary dataset licence check → RxNorm (ADR-009)
 - [ ] Gate report
 

@@ -169,3 +169,55 @@ improvement.
 
 **Consequences.** Typography differs slightly between Android and iOS until then; the type scale is
 centralised in `src/ui/tokens.ts` so this is a single-file change.
+
+---
+
+## ADR-014 Chips express selection with colour, not an icon
+
+**Context.** Paper draws a checkmark for selected filter chips. Without
+`react-native-vector-icons` installed that glyph renders as a tofu box (observed on Android, and
+reported on iOS). Pulling in a vector-icon font package for one glyph is not justified.
+
+**Decision.** Set `showSelectedCheck={false}` and express selection with the primary background and
+on-primary text. Also removed an invalid `minHeight` from the chip's `textStyle`.
+
+**Consequences.** No icon dependency yet. When icons are genuinely needed (Phase 8 polish), add
+`@react-native-vector-icons/material-design-icons` and wire `settings.icon` once.
+
+---
+
+## ADR-015 Native libraries for spikes (e), (f) and (h)
+
+**Context.** The Phase 0 spike list needs PDF rasterisation, on-device OCR and zip.
+
+**Options and decision.**
+
+- **PDF → image:** `react-native-pdf-thumbnail@2.0.0` (Oct 2026, RN ≥0.76). Preferred over
+  `react-native-pdf-page-image`, which was last published Sep 2024.
+- **OCR:** `expo-ai-kit@0.19.0` (Nov 2026, Expo module, Apple Vision on iOS / ML Kit on Android).
+  It exposes `recognizeText()` returning blocks with per-line `confidence`, which HW-3 needs.
+  Rejected: `@react-native-ml-kit/text-recognition` (last published Sep 2025).
+- **Zip:** `react-native-zip-archive@9.5.3` (Oct 2026). It also exposes `zipWithPassword`, which
+  keeps the optional passphrase stretch goal (section 14) open.
+
+**Consequences.** Three native dependencies added; all three verified running on the iOS simulator.
+Android verification is still outstanding (physical phone unavailable, no emulator image installed).
+
+---
+
+## ADR-016 OCR confidence is not a reliable handwriting signal (evidence)
+
+**Context.** HW-3 proposed `handwriting.likely = true` when mean OCR confidence falls below 0.6.
+
+**Evidence (iOS simulator, iPhone 18 Pro, 13 real sample images, Apple Vision via expo-ai-kit):**
+574 recognised lines, **mean confidence 0.92**, and **zero** images below 0.60 — including samples
+that are handwritten prescriptions.
+
+**Decision.** Treat the 0.6 confidence threshold as **insufficient on its own**. Phase 7 must combine
+it with the other two signals from HW-3 (share of tokens present in the analyte/formulary/word lists,
+and line-height irregularity), and be validated per-platform: Apple Vision and ML Kit report
+confidence on different scales, so a single global threshold is not portable.
+
+**Consequences.** The handwriting banner must not depend on confidence alone; when in doubt the app
+should over-warn rather than under-warn. Thresholds are recorded here with the sample count so the
+Phase 7 numbers can be compared honestly.

@@ -1,4 +1,4 @@
-import { recognizeText } from 'expo-ai-kit';
+import { prepareVision, recognizeText } from 'expo-ai-kit';
 import * as DocumentPicker from 'expo-document-picker';
 import { Directory, File, Paths } from 'expo-file-system';
 import * as ImagePicker from 'expo-image-picker';
@@ -109,7 +109,12 @@ async function runOcr(): Promise<CheckResult> {
       return { name: 'expo-ai-kit OCR', ok: false, detail: 'no images in Documents/samples' };
     }
 
+    // Android ships the text-recognition model via Play services and requires this
+    // before the first call; iOS resolves immediately.
+    await prepareVision({ features: ['text-recognition'] });
+
     const lowConfidence: string[] = [];
+    const perFile: string[] = [];
     let totalLines = 0;
     let confidenceSum = 0;
     let confidenceLines = 0;
@@ -127,6 +132,7 @@ async function runOcr(): Promise<CheckResult> {
 
       if (confidences.length > 0) {
         const mean = confidences.reduce((a, b) => a + b, 0) / confidences.length;
+        perFile.push(`${image.name.replace(/\.jpe?g$/i, '').slice(0, 9)}=${mean.toFixed(2)}`);
         // HW-3 starting threshold: a mean below 0.6 suggests handwriting or a poor photo.
         if (mean < 0.6) {
           lowConfidence.push(`${image.name.slice(0, 10)}=${mean.toFixed(2)}`);
@@ -140,7 +146,7 @@ async function runOcr(): Promise<CheckResult> {
       ok: totalLines > 0,
       detail: `${images.length} images, ${totalLines} lines, mean ${overall}, below-0.60: ${
         lowConfidence.length === 0 ? 'none' : lowConfidence.join(' ')
-      }`,
+      } | ${perFile.join(' ')}`,
     };
   } catch (error) {
     return { name: 'expo-ai-kit OCR', ok: false, detail: String(error) };

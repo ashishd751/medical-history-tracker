@@ -203,27 +203,44 @@ on-primary text. Also removed an invalid `minHeight` from the chip's `textStyle`
 **Consequences.** Three native dependencies added; all three verified running on the iOS simulator.
 Android verification is still outstanding (physical phone unavailable, no emulator image installed).
 
+**Amendment (Android build).** `expo-ai-kit`'s Vision backend is **opt-in**: the config plugin must be
+declared as `["expo-ai-kit", { "vision": true }]`, which writes `expoAiKit.vision=true` into
+`android/gradle.properties` and pulls the ML Kit text-recognition dependency into the build. Without
+it, `recognizeText()` fails at runtime on Android with
+`ModelError: Vision is opt-in ... make a new native build`. iOS linked Apple Vision either way, so this
+only bites on Android — the kind of difference a single-platform spike would have missed.
+
 ---
 
-## ADR-016 OCR confidence is not a reliable handwriting signal (evidence)
+## ADR-016 OCR confidence cannot detect handwriting (measured)
 
 **Context.** HW-3 proposed `handwriting.likely = true` when mean OCR confidence falls below 0.6.
 
-**Evidence (iOS simulator, iPhone 18 Pro, 13 real sample images, Apple Vision via expo-ai-kit):**
-574 recognised lines, **mean confidence 0.92**, and **zero** images below 0.60.
+**Method.** Apple Vision via `expo-ai-kit` on the iOS 27.2 simulator, 13 real sample images supplied by
+the user and labelled by them as 7 handwritten / 6 not handwritten. Per-image mean of per-line
+confidence.
 
-**Caveat on the evidence.** I do not yet know which of the 13 files are handwritten. Two readings are
-possible and they lead to different conclusions:
-(a) none of the samples are handwritten, so the test says nothing about handwriting yet; or
-(b) some are handwritten and Vision still reports ~0.9 confidence, which would prove the confidence
-signal is unusable for HW-3.
+**Results.**
 
-**Decision.** Until the sample set is labelled, treat the 0.6 confidence threshold as **unverified and
-insufficient on its own**. Phase 7 must combine it with the other two HW-3 signals (share of tokens
-present in the analyte/formulary/word lists, and line-height irregularity) and be calibrated
-per-platform: Apple Vision and ML Kit report confidence on different scales, so one global threshold
-is not portable.
+| Group           | Files | Mean     | Range           |
+| --------------- | ----- | -------- | --------------- |
+| Handwritten     | 7     | **0.90** | 0.79 – 0.95     |
+| Not handwritten | 6     | **0.92** | 0.86 – 0.97     |
+| All 13          | 13    | 0.92     | 574 lines total |
 
-**Consequences.** The handwriting banner must not depend on confidence alone; when in doubt the app
-should over-warn rather than under-warn. The user must mark which samples are handwritten so this ADR
-can be replaced with a real accuracy table.
+**Decision.** Drop confidence as a _decision_ signal for HW-3. Handwritten and printed pages are
+separated by 0.02 — far inside the noise. The 0.6 threshold classified **zero** of 7 handwritten
+samples as handwritten. HW-3 must therefore rely on:
+
+1. the user's "Handwritten" toggle (already authoritative per the spec),
+2. the share of tokens found in the analyte/formulary/word lists,
+3. line-height irregularity,
+   and must default to **over-warning**: if two of those three are inconclusive, show the strong banner
+   anyway. Confidence stays useful only as a per-field pre-fill gate, never as a document classifier.
+
+**Caveats.** Single platform (Apple Vision). ML Kit on Android reports confidence on a different
+scale and must be measured separately before reusing any threshold. Sample size is 13 images from one
+household.
+
+**Consequences.** Phase 7's acceptance test is "every handwritten sample shows the strong banner",
+not "mean confidence below X". This table is the baseline that Phase 7 must beat or justify.

@@ -34,6 +34,12 @@
         }
       ],
       [
+        "expo-ai-kit",
+        {
+          "vision": true
+        }
+      ],
+      [
         "expo-image-picker",
         {
           "photosPermission": "Allow $(PRODUCT_NAME) to access your photos so you can attach reports and prescriptions you have already captured.",

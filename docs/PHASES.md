@@ -29,12 +29,12 @@ approval. Never start the next phase unprompted.
 
 ## Phase 1 — Data core and manual records
 
-- [ ] Drizzle schema + migrations for all tables; repositories; person scoping
-- [ ] First-launch onboarding
-- [ ] Create/edit/delete record with every field
-- [ ] Home snapshot card, records timeline with search/filters, record detail
-- [ ] Repository + migration tests; Maestro manual-create flow
-- [ ] All user-facing dates render as `DD/MM/YYYY` (ADR-017); no raw `YYYY-MM-DD` visible anywhere
+- [x] Drizzle schema + migrations for all tables; repositories; person scoping
+- [x] First-launch onboarding
+- [x] Create/edit/delete record with every field
+- [x] Home snapshot card, records timeline with search/filters, record detail
+- [x] Repository + migration tests; Maestro manual-create flow
+- [x] All user-facing dates render as `DD/MM/YYYY` (ADR-017); no raw `YYYY-MM-DD` visible anywhere
 
 ## Phase 2 — Attachments
 

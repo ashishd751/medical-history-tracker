@@ -210,14 +210,20 @@ Android verification is still outstanding (physical phone unavailable, no emulat
 **Context.** HW-3 proposed `handwriting.likely = true` when mean OCR confidence falls below 0.6.
 
 **Evidence (iOS simulator, iPhone 18 Pro, 13 real sample images, Apple Vision via expo-ai-kit):**
-574 recognised lines, **mean confidence 0.92**, and **zero** images below 0.60 — including samples
-that are handwritten prescriptions.
+574 recognised lines, **mean confidence 0.92**, and **zero** images below 0.60.
 
-**Decision.** Treat the 0.6 confidence threshold as **insufficient on its own**. Phase 7 must combine
-it with the other two signals from HW-3 (share of tokens present in the analyte/formulary/word lists,
-and line-height irregularity), and be validated per-platform: Apple Vision and ML Kit report
-confidence on different scales, so a single global threshold is not portable.
+**Caveat on the evidence.** I do not yet know which of the 13 files are handwritten. Two readings are
+possible and they lead to different conclusions:
+(a) none of the samples are handwritten, so the test says nothing about handwriting yet; or
+(b) some are handwritten and Vision still reports ~0.9 confidence, which would prove the confidence
+signal is unusable for HW-3.
+
+**Decision.** Until the sample set is labelled, treat the 0.6 confidence threshold as **unverified and
+insufficient on its own**. Phase 7 must combine it with the other two HW-3 signals (share of tokens
+present in the analyte/formulary/word lists, and line-height irregularity) and be calibrated
+per-platform: Apple Vision and ML Kit report confidence on different scales, so one global threshold
+is not portable.
 
 **Consequences.** The handwriting banner must not depend on confidence alone; when in doubt the app
-should over-warn rather than under-warn. Thresholds are recorded here with the sample count so the
-Phase 7 numbers can be compared honestly.
+should over-warn rather than under-warn. The user must mark which samples are handwritten so this ADR
+can be replaced with a real accuracy table.

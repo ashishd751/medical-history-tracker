@@ -8,3 +8,4 @@ package-lock.json
 assets/images
 *.png
 docs/*.png
+private-samples

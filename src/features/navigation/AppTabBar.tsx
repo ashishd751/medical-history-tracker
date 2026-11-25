@@ -26,6 +26,14 @@ export function AppTabBar({ state, navigateToTab, onAddPress }: AppTabBarProps) 
   const { colors } = useAppTheme();
   const insets = useSafeAreaInsets();
 
+  // Five even slots: two tabs, the raised add button, then the remaining tabs. Without the extra
+  // slot the button would sit on top of the third tab's label.
+  const slots: { key: string; route?: (typeof state.routes)[number]; index?: number }[] = [];
+  state.routes.forEach((route, index) => {
+    if (index === 2) slots.push({ key: 'add-slot' });
+    slots.push({ key: route.key, route, index });
+  });
+
   return (
     <View
       style={[
@@ -37,13 +45,10 @@ export function AppTabBar({ state, navigateToTab, onAddPress }: AppTabBarProps) 
         },
       ]}
     >
-      {state.routes.map((route, index) => {
-        const focused = state.index === index;
-        const label = LABELS[route.name] ?? route.name;
-
-        return (
-          <View key={route.key} style={styles.slotGroup}>
-            {index === 2 ? (
+      {slots.map((slot) => {
+        if (!slot.route) {
+          return (
+            <View key={slot.key} style={styles.slot}>
               <Pressable
                 testID="tab-add"
                 onPress={onAddPress}
@@ -56,8 +61,17 @@ export function AppTabBar({ state, navigateToTab, onAddPress }: AppTabBarProps) 
                   +
                 </AppText>
               </Pressable>
-            ) : null}
+            </View>
+          );
+        }
 
+        const route = slot.route;
+        const index = slot.index ?? 0;
+        const focused = state.index === index;
+        const label = LABELS[route.name] ?? route.name;
+
+        return (
+          <View key={slot.key} style={styles.slot}>
             <Pressable
               testID={`tab-${route.name}`}
               onPress={() => {
@@ -90,15 +104,14 @@ const styles = StyleSheet.create({
     borderTopWidth: StyleSheet.hairlineWidth,
     paddingTop: spacing.xs,
   },
-  slotGroup: { flex: 1, alignItems: 'center', gap: spacing.xs },
+  slot: { flex: 1, alignItems: 'center' },
   tab: { minHeight: minTouchTarget, minWidth: 56, alignItems: 'center', justifyContent: 'center' },
   addButton: {
-    position: 'absolute',
-    bottom: spacing.xl,
     width: 52,
     height: 52,
     borderRadius: radius.pill,
     alignItems: 'center',
     justifyContent: 'center',
+    marginTop: -spacing.xl,
   },
 });

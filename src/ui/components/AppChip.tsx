@@ -1,3 +1,4 @@
+import { Keyboard } from 'react-native';
 import { Chip } from 'react-native-paper';
 
 import { useAppTheme } from '../ThemeProvider';
@@ -24,6 +25,15 @@ export function AppChip({
   const { colors } = useAppTheme();
   const isCheck = tone === 'check';
 
+  // Choosing a chip means the user is done with whatever text field they were in; dismissing the
+  // keyboard here also keeps the action they press next (usually a footer button) tappable.
+  const handlePress = onPress
+    ? () => {
+        Keyboard.dismiss();
+        onPress();
+      }
+    : undefined;
+
   return (
     <Chip
       mode={selected || isCheck ? 'flat' : 'outlined'}
@@ -32,7 +42,7 @@ export function AppChip({
       // that renders as a tofu box on both platforms, so we express selection with
       // colour instead (and avoid pulling in a font dependency for one glyph).
       showSelectedCheck={false}
-      onPress={onPress}
+      onPress={handlePress}
       disabled={disabled}
       testID={testID}
       accessibilityLabel={label}

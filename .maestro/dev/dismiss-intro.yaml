@@ -1,0 +1,4 @@
+# Dev-only: dismisses the dev-client intro on a fresh install.
+appId: com.ashishd751.medicalhistory
+---
+- tapOn: 'Continue'

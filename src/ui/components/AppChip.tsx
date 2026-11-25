@@ -1,7 +1,7 @@
 import { Chip } from 'react-native-paper';
 
 import { useAppTheme } from '../ThemeProvider';
-import { minTouchTarget, radius } from '../tokens';
+import { radius } from '../tokens';
 
 export interface AppChipProps {
   label: string;
@@ -28,20 +28,23 @@ export function AppChip({
     <Chip
       mode={selected || isCheck ? 'flat' : 'outlined'}
       selected={selected}
+      // Paper draws a check icon for selected chips. Without react-native-vector-icons
+      // that renders as a tofu box on both platforms, so we express selection with
+      // colour instead (and avoid pulling in a font dependency for one glyph).
+      showSelectedCheck={false}
       onPress={onPress}
       disabled={disabled}
       testID={testID}
       accessibilityLabel={label}
       style={{
         borderRadius: radius.pill,
-        minHeight: 36,
         backgroundColor: isCheck ? colors.checkSurface : selected ? colors.primary : 'transparent',
         borderColor: isCheck ? colors.check : colors.border,
       }}
       textStyle={{
         color: isCheck ? colors.check : selected ? colors.onPrimary : colors.text,
         fontSize: 13,
-        minHeight: minTouchTarget - 8,
+        fontWeight: '600',
       }}
     >
       {label}

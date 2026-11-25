@@ -17,7 +17,9 @@ approval. Never start the next phase unprompted.
 - [x] Spike (a) Paper renders identically on Android + iPhone
 - [x] Spike (b) expo-sqlite + Drizzle migration on device
 - [x] Spike (c) new FileSystem API write/read/delete on device
-- [ ] Spike (d) library-only image picker + document picker on device (no camera prompt)
+- [x] Spike (d) library-only image picker + document picker on device (no camera prompt)
+      — verified on iOS simulator: picker grants "Private Access to Photos" only, no camera prompt,
+      photo selection round-trips, document picker opens and cancels. Android pending emulator.
 - [x] Spike (e) PDF → images (`react-native-pdf-thumbnail`, ADR-015)
 - [x] Spike (f) OCR candidate accuracy on real samples (ADR-015, ADR-016)
 - [x] Spike (g) expo-print HTML → PDF

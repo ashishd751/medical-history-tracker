@@ -1,0 +1,8 @@
+# Dev-only: selects a photo from the out-of-process picker and checks the result.
+appId: com.ashishd751.medicalhistory
+---
+- tapOn:
+    text: 'Photo, March 31, 2018.*'
+- extendedWaitUntil:
+    visible: "image picker \\(library only\\)"
+    timeout: 30000

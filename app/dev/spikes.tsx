@@ -1,5 +1,7 @@
 import { recognizeText } from 'expo-ai-kit';
+import * as DocumentPicker from 'expo-document-picker';
 import { Directory, File, Paths } from 'expo-file-system';
+import * as ImagePicker from 'expo-image-picker';
 import * as Print from 'expo-print';
 import * as SQLite from 'expo-sqlite';
 import { useState } from 'react';
@@ -209,6 +211,57 @@ export default function SpikesScreen() {
   const [results, setResults] = useState<CheckResult[]>([]);
   const [running, setRunning] = useState(false);
 
+  /**
+   * SPIKE (d). Opens the photo library only — never the camera. On both platforms the
+   * system picker is out-of-process, so no camera or photo permission prompt appears.
+   */
+  async function pickImage() {
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'] });
+      const asset = result.assets?.[0];
+      setResults((prev) => [
+        ...prev,
+        result.canceled
+          ? { name: 'image picker (library only)', ok: false, detail: 'cancelled' }
+          : {
+              name: 'image picker (library only)',
+              ok: true,
+              detail: `${result.assets.length} asset(s), ${asset?.fileName ?? 'unknown'}`,
+            },
+      ]);
+    } catch (error) {
+      setResults((prev) => [
+        ...prev,
+        { name: 'image picker (library only)', ok: false, detail: String(error) },
+      ]);
+    }
+  }
+
+  /** SPIKE (d). Document picker restricted to PDFs and images. */
+  async function pickDocument() {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: ['application/pdf', 'image/*'],
+        copyToCacheDirectory: true,
+      });
+      setResults((prev) => [
+        ...prev,
+        result.canceled
+          ? { name: 'document picker', ok: false, detail: 'cancelled' }
+          : {
+              name: 'document picker',
+              ok: true,
+              detail: `${result.assets.length} file(s), ${result.assets[0]?.name ?? 'unknown'}`,
+            },
+      ]);
+    } catch (error) {
+      setResults((prev) => [
+        ...prev,
+        { name: 'document picker', ok: false, detail: String(error) },
+      ]);
+    }
+  }
+
   async function runAll() {
     setRunning(true);
     setResults([]);
@@ -247,6 +300,19 @@ export default function SpikesScreen() {
         label={running ? 'Running…' : 'Run all checks'}
         onPress={runAll}
         loading={running}
+        disabled={running}
+      />
+
+      <AppButton
+        label="Open photo library"
+        variant="secondary"
+        onPress={pickImage}
+        disabled={running}
+      />
+      <AppButton
+        label="Open document picker"
+        variant="secondary"
+        onPress={pickDocument}
         disabled={running}
       />
 

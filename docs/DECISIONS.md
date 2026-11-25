@@ -342,6 +342,9 @@ dialect to keep in sync. Verified before implementing: real Drizzle queries, `ON
   runtime.
 - This is a **test-only** dependency on a Node built-in: nothing in the app bundle changes, and the app
   still ships only `expo-sqlite`.
+- Loading `@types/node` project-wide (tsconfig `types`) is the price of typing that harness, so an
+  ESLint `no-restricted-globals` rule bans `process`, `Buffer`, `require` and friends in `src/` and
+  `app/` — device code cannot quietly start using APIs the React Native runtime does not have.
 
 ---
 

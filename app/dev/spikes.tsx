@@ -1,9 +1,12 @@
+import { recognizeText } from 'expo-ai-kit';
 import { Directory, File, Paths } from 'expo-file-system';
 import * as Print from 'expo-print';
 import * as SQLite from 'expo-sqlite';
 import { useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
+import PdfThumbnail from 'react-native-pdf-thumbnail';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { unzip, zip } from 'react-native-zip-archive';
 
 import { AppButton, AppCard, AppText, spacing, useAppTheme } from '@/ui';
 
@@ -79,6 +82,127 @@ async function runPrint(): Promise<CheckResult> {
   }
 }
 
+const SAMPLES_DIR = 'samples';
+
+/** Files the user drops into the app's Documents/samples folder for local testing. */
+function sampleFiles(extension: 'image' | 'pdf'): File[] {
+  const dir = new Directory(Paths.document, SAMPLES_DIR);
+  if (!dir.exists) return [];
+  const files = dir.list().filter((entry): entry is File => entry instanceof File);
+  return files.filter((file) =>
+    extension === 'pdf'
+      ? file.name.toLowerCase().endsWith('.pdf')
+      : /\.(jpe?g|png)$/i.test(file.name),
+  );
+}
+
+/**
+ * SPIKE (f). Runs the OCR engine over local samples and reports only aggregate
+ * metrics — never the recognised text, which would be real medical data.
+ */
+async function runOcr(): Promise<CheckResult> {
+  try {
+    const images = sampleFiles('image');
+    if (images.length === 0) {
+      return { name: 'expo-ai-kit OCR', ok: false, detail: 'no images in Documents/samples' };
+    }
+
+    const lowConfidence: string[] = [];
+    let totalLines = 0;
+    let confidenceSum = 0;
+    let confidenceLines = 0;
+
+    for (const image of images) {
+      const result = await recognizeText({ uri: image.uri });
+      const lines = result.blocks.flatMap((block) => block.lines);
+      const confidences = lines
+        .map((line) => line.confidence)
+        .filter((value): value is number => typeof value === 'number');
+
+      totalLines += lines.length;
+      confidenceSum += confidences.reduce((a, b) => a + b, 0);
+      confidenceLines += confidences.length;
+
+      if (confidences.length > 0) {
+        const mean = confidences.reduce((a, b) => a + b, 0) / confidences.length;
+        // HW-3 starting threshold: a mean below 0.6 suggests handwriting or a poor photo.
+        if (mean < 0.6) {
+          lowConfidence.push(`${image.name.slice(0, 10)}=${mean.toFixed(2)}`);
+        }
+      }
+    }
+
+    const overall = confidenceLines > 0 ? (confidenceSum / confidenceLines).toFixed(2) : 'n/a';
+    return {
+      name: 'expo-ai-kit OCR',
+      ok: totalLines > 0,
+      detail: `${images.length} images, ${totalLines} lines, mean ${overall}, below-0.60: ${
+        lowConfidence.length === 0 ? 'none' : lowConfidence.join(' ')
+      }`,
+    };
+  } catch (error) {
+    return { name: 'expo-ai-kit OCR', ok: false, detail: String(error) };
+  }
+}
+
+/** SPIKE (e). Rasterises page 1 of a PDF to a JPEG thumbnail. */
+async function runPdfRender(): Promise<CheckResult> {
+  try {
+    const pdfs = sampleFiles('pdf');
+    if (pdfs.length === 0) {
+      return {
+        name: 'react-native-pdf-thumbnail',
+        ok: false,
+        detail: 'no PDFs in Documents/samples',
+      };
+    }
+
+    const pdf = pdfs[0];
+    if (!pdf) return { name: 'react-native-pdf-thumbnail', ok: false, detail: 'no PDF' };
+
+    const thumb = await PdfThumbnail.generate(pdf.uri, 0, { quality: 70, maxWidth: 1500 });
+    const rendered = new File(thumb.uri);
+    return {
+      name: 'react-native-pdf-thumbnail',
+      ok: thumb.width > 0 && thumb.height > 0,
+      detail: `page1 ${thumb.width}x${thumb.height}px jpeg=${rendered.size}B from ${pdf.name.slice(0, 14)}`,
+    };
+  } catch (error) {
+    return { name: 'react-native-pdf-thumbnail', ok: false, detail: String(error) };
+  }
+}
+
+/** SPIKE (h). Zips the sample folder and unzips it again, comparing file counts. */
+async function runZip(): Promise<CheckResult> {
+  try {
+    const source = new Directory(Paths.document, SAMPLES_DIR);
+    if (!source.exists) {
+      return { name: 'react-native-zip-archive', ok: false, detail: 'no Documents/samples folder' };
+    }
+
+    const before = source.list().length;
+    const archive = new File(Paths.cache, 'spike.zip');
+    if (archive.exists) archive.delete();
+
+    await zip(source.uri.replace('file://', ''), archive.uri.replace('file://', ''));
+
+    const restored = new Directory(Paths.cache, 'spike-unzipped');
+    if (restored.exists) restored.delete();
+    restored.create({ intermediates: true, idempotent: true });
+
+    await unzip(archive.uri.replace('file://', ''), restored.uri.replace('file://', ''));
+
+    const after = restored.list().length;
+    return {
+      name: 'react-native-zip-archive',
+      ok: archive.size > 0 && after >= before,
+      detail: `zip=${archive.size}B files ${before} -> ${after}`,
+    };
+  } catch (error) {
+    return { name: 'react-native-zip-archive', ok: false, detail: String(error) };
+  }
+}
+
 export default function SpikesScreen() {
   const { colors } = useAppTheme();
   const insets = useSafeAreaInsets();
@@ -88,12 +212,20 @@ export default function SpikesScreen() {
   async function runAll() {
     setRunning(true);
     setResults([]);
-    const sqlite = await runSqlite();
-    setResults([sqlite]);
-    const fs = await runFileSystem();
-    setResults([sqlite, fs]);
-    const print = await runPrint();
-    setResults([sqlite, fs, print]);
+    const steps: (() => Promise<CheckResult>)[] = [
+      runSqlite,
+      runFileSystem,
+      runPrint,
+      runOcr,
+      runPdfRender,
+      runZip,
+    ];
+    const collected: CheckResult[] = [];
+    for (const step of steps) {
+      const result = await step();
+      collected.push(result);
+      setResults([...collected]);
+    }
     setRunning(false);
   }
 

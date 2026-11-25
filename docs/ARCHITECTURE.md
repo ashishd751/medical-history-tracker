@@ -49,7 +49,9 @@ Rules:
 ## Data invariants
 
 - Ids are UUIDv7 strings.
-- Dates without time are `YYYY-MM-DD` in the device's local calendar.
+- Dates without time are `YYYY-MM-DD` in storage (device-local calendar) and **`DD/MM/YYYY` in every
+  user-facing surface** — cards, timelines, detail rows, form summaries, PDF export. Formatting lives
+  in `formatDisplayDate()` and is string-based, so it does not vary with device locale.
 - Timestamps are UTC epoch milliseconds.
 - Measurements are stored in metric; converted only for display.
 - BMI is never stored — always computed from the latest height and weight.

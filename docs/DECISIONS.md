@@ -260,3 +260,28 @@ per-platform measurement too.
 
 **Consequences.** Phase 7's acceptance test is "every handwritten sample shows the strong banner",
 not "mean confidence below X". This table is the baseline that Phase 7 must beat or justify.
+
+---
+
+## ADR-017 Dates: ISO in storage, DD/MM/YYYY on screen
+
+**Context.** Dates without time are stored as `YYYY-MM-DD`, which sorts correctly and avoids timezone
+drift. The owner wants every date the user sees rendered as `DD/MM/YYYY`, consistent across Android
+and iOS.
+
+**Options.** (a) render with `toLocaleDateString` and let the device locale decide; (b) format the
+stored string directly.
+
+**Decision.** (b). `formatDisplayDate()` in `src/lib/dates.ts` slices the stored `YYYY-MM-DD` and
+returns `DD/MM/YYYY`, zero-padded. No `Date` object, no locale dependency. The `locale` parameter was
+removed so no caller can accidentally reintroduce locale-dependent output. Invalid input is returned
+unchanged so a bad value is visible rather than silently blanked.
+
+**Consequences.**
+
+- Storage format is unchanged; migrations and sorting are unaffected.
+- 24-hour vs 12-hour times are a separate question and not covered here.
+- Month section headers on the Records timeline remain textual labels ("November 2026"), not dates.
+- The native date picker still shows the OS's own format while open; the chosen value is echoed beneath
+  it as `DD/MM/YYYY`.
+- Phase 4's PDF export must use the same helper so the printed output matches the app.

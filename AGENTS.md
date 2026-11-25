@@ -53,7 +53,9 @@ Run `npm run deps:check` after adding imports.
 - All database access goes through repositories; every write is transactional.
 - All file I/O goes through `src/data/fileStore.ts` and returns `Result`.
 - Store **relative** attachment paths in SQLite, never absolute URIs.
-- Dates without time are `YYYY-MM-DD` strings; never round-trip them through UTC.
+- Dates without time are `YYYY-MM-DD` strings in storage; never round-trip them through UTC. Render
+  them for users as **`DD/MM/YYYY`** (use `formatDisplayDate` from `src/lib/dates.ts`). Never show a
+  raw ISO date in the UI.
 - Measurements are stored in metric; convert only at display time.
 
 ## Before every commit

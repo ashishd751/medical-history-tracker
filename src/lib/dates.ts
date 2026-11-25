@@ -47,8 +47,17 @@ export function parseIsoDate(value: string): Date | null {
 }
 
 /** Human-readable date for display only, e.g. "24 Nov 2026". */
-export function formatDisplayDate(value: string, locale = 'en-GB'): string {
-  const date = parseIsoDate(value);
-  if (!date) return value;
-  return date.toLocaleDateString(locale, { day: '2-digit', month: 'short', year: 'numeric' });
+/**
+ * Renders a stored `YYYY-MM-DD` date for the user as `DD/MM/YYYY`.
+ *
+ * Formatting is done on the string, not through `Date` + `toLocaleDateString`, so the
+ * output is identical on every device regardless of locale settings — the UI must show
+ * dates the same way on Android and iOS (section 15.1). Invalid input is returned
+ * unchanged so a bad value is visible rather than silently blanked.
+ */
+export function formatDisplayDate(value: string): string {
+  const match = ISO_DATE.exec(value);
+  if (!match || !isValidIsoDate(value)) return value;
+  const [, year, month, day] = match;
+  return `${day}/${month}/${year}`;
 }

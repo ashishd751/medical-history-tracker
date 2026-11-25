@@ -34,6 +34,7 @@ approval. Never start the next phase unprompted.
 - [ ] Create/edit/delete record with every field
 - [ ] Home snapshot card, records timeline with search/filters, record detail
 - [ ] Repository + migration tests; Maestro manual-create flow
+- [ ] All user-facing dates render as `DD/MM/YYYY` (ADR-017); no raw `YYYY-MM-DD` visible anywhere
 
 ## Phase 2 — Attachments
 

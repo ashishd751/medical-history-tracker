@@ -17,6 +17,8 @@ export interface AppFieldProps {
   editable?: boolean;
   testID?: string;
   onBlur?: () => void;
+  onSubmitEditing?: () => void;
+  returnKeyType?: 'done' | 'next' | 'go' | 'search';
 }
 
 /** Text input with label, helper and error state. Height meets the 44pt target. */
@@ -34,6 +36,8 @@ export function AppField({
   editable = true,
   testID,
   onBlur,
+  onSubmitEditing,
+  returnKeyType,
 }: AppFieldProps) {
   const { colors } = useAppTheme();
   return (
@@ -51,6 +55,8 @@ export function AppField({
       autoCapitalize={autoCapitalize}
       editable={editable}
       testID={testID}
+      onSubmitEditing={onSubmitEditing}
+      returnKeyType={returnKeyType}
       outlineStyle={{ borderRadius: radius.input }}
       outlineColor={colors.border}
       activeOutlineColor={colors.primary}

@@ -14,6 +14,7 @@ export interface AppTextProps {
   style?: StyleProp<TextStyle>;
   /** For screen readers when the text is a heading. */
   accessibilityRole?: 'header' | 'text' | undefined;
+  testID?: string;
 }
 
 function resolveColor(semantic: SemanticColor, colors: ReturnType<typeof useAppTheme>['colors']) {
@@ -42,12 +43,14 @@ export function AppText({
   numberOfLines,
   style,
   accessibilityRole,
+  testID,
 }: AppTextProps) {
   const { colors } = useAppTheme();
   return (
     <PaperText
       numberOfLines={numberOfLines}
       accessibilityRole={accessibilityRole}
+      testID={testID}
       style={[typography[variant], { color: resolveColor(color, colors), textAlign: align }, style]}
     >
       {children}

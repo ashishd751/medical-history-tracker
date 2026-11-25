@@ -15,6 +15,7 @@ export interface AppButtonProps {
   accessibilityHint?: string | undefined;
   /** Stretch to the container width; used for primary actions on forms. */
   fullWidth?: boolean;
+  testID?: string;
 }
 
 /**
@@ -30,6 +31,7 @@ export function AppButton({
   icon,
   accessibilityHint,
   fullWidth = false,
+  testID,
 }: AppButtonProps) {
   const { colors } = useAppTheme();
 
@@ -57,6 +59,7 @@ export function AppButton({
       icon={icon}
       accessibilityHint={accessibilityHint}
       accessibilityRole="button"
+      testID={testID}
       style={fullWidth ? { alignSelf: 'stretch' } : undefined}
       contentStyle={{ minHeight: minTouchTarget, paddingHorizontal: variant === 'quiet' ? 8 : 16 }}
       buttonColor={buttonColor}

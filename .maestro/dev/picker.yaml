@@ -1,5 +1,0 @@
-# Dev-only: launches the library-only image picker (spike d).
-appId: com.ashishd751.medicalhistory
----
-- tapOn: 'Run library spikes'
-- tapOn: 'Open photo library'

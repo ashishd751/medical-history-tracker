@@ -1,7 +1,0 @@
-# Dev-only: re-runs the spikes in place (used after adding samples).
-appId: com.ashishd751.medicalhistory
----
-- tapOn: 'Run all checks'
-- extendedWaitUntil:
-    visible: 'react-native-zip-archive'
-    timeout: 180000

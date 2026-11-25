@@ -1,9 +1,0 @@
-# Dev-only: opens the document picker, confirms it appeared, then cancels.
-appId: com.ashishd751.medicalhistory
----
-- tapOn: 'Open document picker'
-- assertVisible: 'Cancel'
-- tapOn: 'Cancel'
-- extendedWaitUntil:
-    visible: 'document picker'
-    timeout: 30000

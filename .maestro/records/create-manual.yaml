@@ -1,0 +1,161 @@
+# Phase 1 acceptance flow: first launch, manual record creation, and the timeline.
+#
+# Run from the repo root, passing the Metro URL for the device under test:
+#   iOS:     --env EXPO_URL='medicalhistory://expo-development-client/?url=http%3A%2F%2Flocalhost%3A8081'
+#            --env METRO_HOST='localhost:8081'
+#   Android: --env EXPO_URL='medicalhistory://expo-development-client/?url=http%3A%2F%2F10.0.2.2%3A8081'
+#            --env METRO_HOST='10.0.2.2:8081'
+#
+# The keyboard is dismissed by tapping a chip: chips call `Keyboard.dismiss()` before their action,
+# which is both the behaviour a user expects and the only reliable dismissal on both platforms
+# (`hideKeyboard` fails on iOS without a software keyboard and sends BACK on Android).
+# Buttons are tapped by label, because `id:` lands on different nodes on each platform.
+#
+# The date assertions require DD/MM/YYYY and forbid a raw ISO date (ADR-017).
+appId: com.ashishd751.medicalhistory
+---
+- launchApp:
+    clearState: true
+- openLink: ${EXPO_URL}
+
+# The dev client inserts its own UI between the deep link and the app. Each condition is checked
+# in the order it can appear: launcher, one-time intro, Android dev menu.
+- runFlow:
+    when:
+      visible: 'Connect'
+    commands:
+      - tapOn: 'http://'
+      - inputText: ${METRO_HOST}
+      - tapOn: 'Connect'
+- runFlow:
+    when:
+      visible: 'Continue'
+    commands:
+      - tapOn: 'Continue'
+- runFlow:
+    when:
+      visible: 'Go home'
+    commands:
+      - back
+
+- extendedWaitUntil:
+    visible: 'Welcome'
+    timeout: 120000
+
+# --- Onboarding step 1 -----------------------------------------------------
+- extendedWaitUntil:
+    visible:
+      id: 'onboarding-name'
+    timeout: 30000
+# A tap that lands while the dev client's overlay is still fading out is swallowed, which looks
+# exactly like "the text field ignores input". Waiting for the animation removes that race.
+- waitForAnimationToEnd:
+    timeout: 5000
+- tapOn:
+    id: 'onboarding-name'
+- waitForAnimationToEnd:
+    timeout: 2000
+- tapOn:
+    id: 'onboarding-name'
+- inputText: 'Synthetic Person'
+- assertVisible:
+    text: 'Synthetic Person'
+- tapOn: 'Female'
+- assertVisible:
+    id: 'onboarding-sex-female'
+- tapOn: 'Next'
+
+# --- Onboarding step 2 -----------------------------------------------------
+- extendedWaitUntil:
+    visible: 'Body'
+    timeout: 20000
+- tapOn:
+    id: 'onboarding-height'
+- inputText: '170'
+- tapOn:
+    id: 'onboarding-weight'
+- inputText: '70'
+# An already-selected chip dismisses the keyboard and changes nothing.
+- tapOn: 'Metric (cm, kg)'
+- assertVisible:
+    id: 'onboarding-bmi'
+- tapOn: 'Next'
+
+# --- Onboarding step 3 (optional) -----------------------------------------
+- extendedWaitUntil:
+    visible: 'Health basics'
+    timeout: 20000
+- tapOn: 'Finish setup'
+
+# --- Home ------------------------------------------------------------------
+- extendedWaitUntil:
+    visible:
+      id: 'snapshot-card'
+    timeout: 30000
+- assertVisible:
+    text: 'Hello, Synthetic Person'
+# BMI is derived from the onboarding measurements: 70 kg at 170 cm is 24.2.
+- assertVisible:
+    id: 'bmi-value'
+- assertVisible:
+    text: '24.2'
+
+# --- Add a record through the centre button --------------------------------
+- tapOn:
+    id: 'tab-add'
+- extendedWaitUntil:
+    visible:
+      id: 'add-sheet'
+    timeout: 10000
+- assertVisible:
+    text: 'Upload a report or prescription'
+- tapOn:
+    id: 'add-manual'
+
+# --- Record form -----------------------------------------------------------
+- extendedWaitUntil:
+    visible:
+      id: 'screen-record-form'
+    timeout: 20000
+- tapOn:
+    id: 'form-title'
+- inputText: 'Fever and cough'
+- tapOn: 'Doctor visit'
+# The remaining fields (doctor, facility, condition, repeaters, vitals) are covered by the
+# repository tests; this flow proves the end-to-end path on both platforms.
+- tapOn: 'Save'
+
+# --- Detail ----------------------------------------------------------------
+- extendedWaitUntil:
+    visible:
+      id: 'screen-record-detail'
+    timeout: 30000
+- assertVisible:
+    text: 'Fever and cough'
+# The stored date is ISO; the screen must show it as DD/MM/YYYY.
+- assertVisible:
+    text: '\d{2}/\d{2}/\d{4}'
+- assertNotVisible:
+    text: '\d{4}-\d{2}-\d{2}'
+
+# --- Timeline --------------------------------------------------------------
+# The detail is a full-screen route, so return to the tabs before switching.
+- tapOn: 'Back'
+- extendedWaitUntil:
+    visible:
+      id: 'tab-records'
+    timeout: 20000
+- tapOn:
+    id: 'tab-records'
+- extendedWaitUntil:
+    visible:
+      id: 'screen-records'
+    timeout: 20000
+- assertVisible:
+    text: 'Fever and cough'
+- assertVisible:
+    text: '\d{2}/\d{2}/\d{4}'
+- assertNotVisible:
+    text: '\d{4}-\d{2}-\d{2}'
+- assertVisible:
+    text: '1 record'

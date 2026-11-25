@@ -322,8 +322,8 @@ export default function SpikesScreen() {
         disabled={running}
       />
 
-      {results.map((result) => (
-        <AppCard key={result.name}>
+      {results.map((result, index) => (
+        <AppCard key={`${result.name}-${index}`}>
           <View style={styles.row}>
             <AppText variant="subtitle">{result.name}</AppText>
             <AppText variant="label" color={result.ok ? 'success' : 'danger'}>

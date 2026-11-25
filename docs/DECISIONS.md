@@ -216,31 +216,47 @@ only bites on Android — the kind of difference a single-platform spike would h
 
 **Context.** HW-3 proposed `handwriting.likely = true` when mean OCR confidence falls below 0.6.
 
-**Method.** Apple Vision via `expo-ai-kit` on the iOS 27.2 simulator, 13 real sample images supplied by
-the user and labelled by them as 7 handwritten / 6 not handwritten. Per-image mean of per-line
-confidence.
+**Method.** `expo-ai-kit` on both platforms — Apple Vision (iOS 27.2 simulator) and ML Kit
+(Android 16 / API 36 emulator) — over the same 13 real sample images, labelled by the user as
+7 handwritten / 6 not handwritten. Metric is the per-image mean of per-line confidence.
 
-**Results.**
+**Results — iOS (Apple Vision).**
 
-| Group           | Files | Mean     | Range           |
-| --------------- | ----- | -------- | --------------- |
-| Handwritten     | 7     | **0.90** | 0.79 – 0.95     |
-| Not handwritten | 6     | **0.92** | 0.86 – 0.97     |
-| All 13          | 13    | 0.92     | 574 lines total |
+| Group           | Files | Mean     | Range       |
+| --------------- | ----- | -------- | ----------- |
+| Handwritten     | 7     | **0.90** | 0.79 – 0.95 |
+| Not handwritten | 6     | **0.92** | 0.86 – 0.97 |
 
-**Decision.** Drop confidence as a _decision_ signal for HW-3. Handwritten and printed pages are
-separated by 0.02 — far inside the noise. The 0.6 threshold classified **zero** of 7 handwritten
-samples as handwritten. HW-3 must therefore rely on:
+**Results — Android (ML Kit).**
 
-1. the user's "Handwritten" toggle (already authoritative per the spec),
-2. the share of tokens found in the analyte/formulary/word lists,
-3. line-height irregularity,
-   and must default to **over-warning**: if two of those three are inconclusive, show the strong banner
-   anyway. Confidence stays useful only as a per-field pre-fill gate, never as a document classifier.
+| Group           | Files | Mean     | Range       |
+| --------------- | ----- | -------- | ----------- |
+| Handwritten     | 7     | **0.66** | 0.58 – 0.79 |
+| Not handwritten | 6     | **0.77** | 0.72 – 0.82 |
 
-**Caveats.** Single platform (Apple Vision). ML Kit on Android reports confidence on a different
-scale and must be measured separately before reusing any threshold. Sample size is 13 images from one
-household.
+**At the proposed 0.60 threshold.**
+
+| Engine             | Handwritten caught | Printed false positives |
+| ------------------ | ------------------ | ----------------------- |
+| Apple Vision (iOS) | **0 / 7**          | 0 / 6                   |
+| ML Kit (Android)   | **2 / 7 (29%)**    | 0 / 6                   |
+
+**Decision.** Confidence cannot carry HW-3 on either engine, and the same number does not mean the same
+thing on each: ML Kit separates by 0.11 and sits ~0.25 lower overall, Apple Vision separates by 0.02.
+Therefore:
+
+1. thresholds must be **per engine**, never shared;
+2. on iOS, ignore confidence as a document classifier entirely;
+3. on Android, confidence may only _add_ evidence;
+4. HW-3 relies primarily on the user's "Handwritten" toggle, dictionary-hit rate and line-height
+   irregularity, and defaults to **over-warning** when they disagree.
+
+Confidence remains useful as a per-field pre-fill gate, which is a different question from "is this
+document handwritten".
+
+**Caveats.** 13 images from one household, one document type each. The engines also disagree on the
+text itself — 574 lines (Vision) vs 602 (ML Kit) for the same 13 images — so parser accuracy will need
+per-platform measurement too.
 
 **Consequences.** Phase 7's acceptance test is "every handwritten sample shows the strong banner",
 not "mean confidence below X". This table is the baseline that Phase 7 must beat or justify.

@@ -38,8 +38,15 @@ export function AppScreen({
 
   const header = (
     <View style={styles.header}>
-      {onBack ? (
-        <AppButton label="Back" variant="quiet" onPress={onBack} accessibilityHint="Go back" />
+      {/* Buttons live on their own row so a long title can wrap without colliding with them. */}
+      {onBack || right ? (
+        <View style={styles.actions}>
+          {onBack ? (
+            <AppButton label="Back" variant="quiet" onPress={onBack} accessibilityHint="Go back" />
+          ) : null}
+          <View style={styles.spacer} />
+          {right ?? null}
+        </View>
       ) : null}
       <View style={styles.titleBlock}>
         {eyebrow ? (
@@ -51,7 +58,6 @@ export function AppScreen({
           {title}
         </AppText>
       </View>
-      {right ? <View style={styles.right}>{right}</View> : null}
     </View>
   );
 
@@ -84,13 +90,9 @@ export function AppScreen({
 const styles = StyleSheet.create({
   root: { flex: 1, paddingHorizontal: spacing.lg },
   flex: { flex: 1 },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    gap: spacing.sm,
-    paddingBottom: spacing.md,
-  },
-  titleBlock: { flex: 1, gap: 2 },
-  right: { paddingBottom: spacing.xs },
+  header: { gap: spacing.xs, paddingBottom: spacing.md },
+  actions: { flexDirection: 'row', alignItems: 'center' },
+  spacer: { flex: 1 },
+  titleBlock: { gap: 2 },
   content: { gap: spacing.lg, paddingTop: spacing.xs },
 });

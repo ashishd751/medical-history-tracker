@@ -67,23 +67,21 @@ export function RecordDetailScreen({ recordId }: { recordId: string }) {
   };
 
   return (
-    <AppScreen
-      title={record.title}
-      onBack={() => router.back()}
-      right={
-        <AppButton
-          label={strings.common.edit}
-          variant="quiet"
-          onPress={() => router.push(`/record/${recordId}/edit`)}
-        />
-      }
-      testID="screen-record-detail"
-    >
+    <AppScreen title={record.title} onBack={() => router.back()} testID="screen-record-detail">
       <View style={styles.head}>
         <AppBadge label={recordKindLabel(record.kind)} tone="primary" />
         <AppText variant="label" testID="detail-date">
           {formatDisplayDate(record.date)}
         </AppText>
+        <View style={styles.headSpacer} />
+        {/* In the body rather than the header: the header's top-right corner is where the dev
+            client draws its floating menu button in development builds. */}
+        <AppButton
+          label={strings.common.edit}
+          variant="secondary"
+          onPress={() => router.push(`/record/${recordId}/edit`)}
+          testID="edit-record"
+        />
       </View>
 
       {record.symptoms.length > 0 ? (
@@ -153,5 +151,6 @@ export function RecordDetailScreen({ recordId }: { recordId: string }) {
 
 const styles = StyleSheet.create({
   head: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  headSpacer: { flex: 1 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs },
 });

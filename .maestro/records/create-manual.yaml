@@ -159,3 +159,38 @@ appId: com.ashishd751.medicalhistory
     text: '\d{4}-\d{2}-\d{2}'
 - assertVisible:
     text: '1 record'
+
+# --- Edit ------------------------------------------------------------------
+- tapOn: 'Fever and cough'
+- extendedWaitUntil:
+    visible:
+      id: 'screen-record-detail'
+    timeout: 20000
+- tapOn:
+    id: 'edit-record'
+- extendedWaitUntil:
+    visible:
+      id: 'screen-record-form'
+    timeout: 20000
+- tapOn:
+    id: 'form-title'
+- eraseText: 40
+- inputText: 'Edited title'
+- tapOn: 'Doctor visit'
+- tapOn: 'Save'
+- extendedWaitUntil:
+    visible: 'Edited title'
+    timeout: 30000
+- assertVisible:
+    text: '\d{2}/\d{2}/\d{4}'
+
+# --- Delete ----------------------------------------------------------------
+- tapOn: 'Delete'
+- assertVisible:
+    text: 'Delete this record?'
+- tapOn: 'Delete record'
+- extendedWaitUntil:
+    visible: 'No records yet.'
+    timeout: 20000
+- assertVisible:
+    text: '0 records'

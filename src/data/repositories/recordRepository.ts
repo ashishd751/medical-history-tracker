@@ -1,0 +1,386 @@
+/**
+ * Records and their children.
+ *
+ * A record form saves a record, its medications, its test readings and its vitals in ONE
+ * transaction: a partial save would leave a lab report with half its readings. Transactions use
+ * synchronous callbacks deliberately (ADR-020) — an async callback commits before it throws.
+ */
+import { and, asc, desc, eq, gte, inArray, lte, type SQL, sql } from 'drizzle-orm';
+
+import type {
+  DataSource,
+  MeasurementKind,
+  MedicationStatus,
+  ReadingFlag,
+  RecordKind,
+} from '../../domain';
+import { type AppError, appError } from '../../lib/errors';
+import { logger } from '../../lib/logger';
+import { err, ok, type Result } from '../../lib/result';
+import type { AppDatabase } from '../db';
+import {
+  measurement,
+  type MeasurementRow,
+  medication,
+  type MedicationRow,
+  record,
+  type RecordRow,
+  testResult,
+  type TestResultRow,
+} from '../schema';
+import { defaultRepositoryDeps, type RepositoryDeps } from './deps';
+
+export interface MedicationInput {
+  readonly name: string;
+  readonly dose?: string;
+  readonly frequency?: string;
+  readonly duration?: string;
+  /** Defaults to the record's date. */
+  readonly startOn?: string;
+  readonly endOn?: string | null;
+  readonly status?: MedicationStatus;
+  readonly notes?: string;
+  readonly source?: DataSource;
+}
+
+export interface ReadingInput {
+  readonly name: string;
+  readonly value: string;
+  readonly numericValue?: number | null;
+  readonly unit?: string;
+  readonly refLow?: number | null;
+  readonly refHigh?: number | null;
+  readonly flag?: ReadingFlag;
+}
+
+export interface VitalInput {
+  readonly kind: MeasurementKind;
+  readonly v1: number;
+  readonly v2?: number | null;
+}
+
+export interface RecordFormInput {
+  /** `YYYY-MM-DD`. */
+  readonly date: string;
+  readonly kind: RecordKind;
+  readonly title: string;
+  readonly symptoms?: readonly string[];
+  readonly condition?: string;
+  readonly doctorId?: string | null;
+  readonly facility?: string;
+  readonly prescriptionText?: string;
+  readonly comments?: string;
+  /** `YYYY-MM-DD` or null. */
+  readonly followUpOn?: string | null;
+  readonly medications?: readonly MedicationInput[];
+  readonly readings?: readonly ReadingInput[];
+  readonly vitals?: readonly VitalInput[];
+}
+
+export type RecordView = Omit<RecordRow, 'symptoms'> & { readonly symptoms: readonly string[] };
+
+export interface RecordSummary {
+  readonly id: string;
+  readonly date: string;
+  readonly kind: RecordKind;
+  readonly title: string;
+  readonly condition: string;
+  readonly doctorId: string | null;
+  readonly followUpOn: string | null;
+  readonly updatedAt: number;
+}
+
+export interface RecordDetail {
+  readonly record: RecordView;
+  readonly medications: readonly MedicationRow[];
+  readonly readings: readonly TestResultRow[];
+  readonly measurements: readonly MeasurementRow[];
+}
+
+export interface RecordFilter {
+  readonly search?: string;
+  readonly kinds?: readonly RecordKind[];
+  /** Inclusive `YYYY-MM-DD`. */
+  readonly from?: string;
+  /** Inclusive `YYYY-MM-DD`. */
+  readonly to?: string;
+  readonly limit?: number;
+  readonly offset?: number;
+}
+
+export interface RecordRepository {
+  create(personId: string, input: RecordFormInput): Result<string, AppError>;
+  update(personId: string, recordId: string, input: RecordFormInput): Result<true, AppError>;
+  getDetail(personId: string, recordId: string): RecordDetail | null;
+  listSummaries(personId: string, filter?: RecordFilter): RecordSummary[];
+  recent(personId: string, limit?: number): RecordSummary[];
+  count(personId: string): number;
+  /** Cascades to medications, readings, attachments and the record's measurements. */
+  remove(personId: string, recordId: string): Result<true, AppError>;
+}
+
+/** Symptoms are a JSON array in storage; a damaged value must not break a whole list read. */
+export function parseSymptoms(value: string): string[] {
+  try {
+    const parsed: unknown = JSON.parse(value);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter((item): item is string => typeof item === 'string');
+  } catch {
+    logger.warn('Discarding unreadable symptoms value', { value });
+    return [];
+  }
+}
+
+export function toRecordView(row: RecordRow): RecordView {
+  const { symptoms, ...rest } = row;
+  return { ...rest, symptoms: parseSymptoms(symptoms) };
+}
+
+/** The transaction handle Drizzle hands to a synchronous transaction callback. */
+type AppTransaction = Parameters<Parameters<AppDatabase['transaction']>[0]>[0];
+
+export function createRecordRepository(
+  db: AppDatabase,
+  deps: RepositoryDeps = defaultRepositoryDeps,
+): RecordRepository {
+  const ownedRecord = (personId: string, recordId: string): RecordRow | null =>
+    db
+      .select()
+      .from(record)
+      .where(and(eq(record.id, recordId), eq(record.personId, personId)))
+      .get() ?? null;
+
+  const insertChildren = (
+    tx: AppTransaction,
+    personId: string,
+    recordId: string,
+    input: RecordFormInput,
+    now: number,
+  ): void => {
+    for (const item of input.medications ?? []) {
+      if (!item.name.trim()) continue;
+      tx.insert(medication)
+        .values({
+          id: deps.newId(),
+          personId,
+          recordId,
+          name: item.name.trim(),
+          dose: item.dose?.trim() ?? '',
+          frequency: item.frequency?.trim() ?? '',
+          duration: item.duration?.trim() ?? '',
+          startOn: item.startOn ?? input.date,
+          endOn: item.endOn ?? null,
+          status: item.status ?? 'ongoing',
+          notes: item.notes?.trim() ?? '',
+          source: item.source ?? 'manual',
+          reviewedAt: now,
+        })
+        .run();
+    }
+
+    for (const item of input.readings ?? []) {
+      if (!item.name.trim() || !item.value.trim()) continue;
+      tx.insert(testResult)
+        .values({
+          id: deps.newId(),
+          recordId,
+          name: item.name.trim(),
+          value: item.value.trim(),
+          numericValue: item.numericValue ?? null,
+          unit: item.unit?.trim() ?? '',
+          refLow: item.refLow ?? null,
+          refHigh: item.refHigh ?? null,
+          flag: item.flag ?? 'unknown',
+          source: 'manual',
+          reviewedAt: now,
+        })
+        .run();
+    }
+
+    for (const item of input.vitals ?? []) {
+      if (!Number.isFinite(item.v1)) continue;
+      tx.insert(measurement)
+        .values({
+          id: deps.newId(),
+          personId,
+          recordId,
+          kind: item.kind,
+          v1: item.v1,
+          v2: item.v2 ?? null,
+          measuredOn: input.date,
+          createdAt: now,
+        })
+        .run();
+    }
+  };
+
+  const listSummaries = (personId: string, filter?: RecordFilter): RecordSummary[] => {
+    const conditions: SQL[] = [eq(record.personId, personId)];
+    if (filter?.from) conditions.push(gte(record.date, filter.from));
+    if (filter?.to) conditions.push(lte(record.date, filter.to));
+    if (filter?.kinds && filter.kinds.length > 0) {
+      conditions.push(inArray(record.kind, [...filter.kinds]));
+    }
+
+    const needle = filter?.search?.trim().toLowerCase();
+    if (needle) {
+      // `instr` is a literal substring test: no LIKE wildcards to escape, and a stray `%` typed
+      // into search cannot widen the match.
+      conditions.push(sql`(
+        instr(lower(${record.title}), ${needle}) > 0 OR
+        instr(lower(${record.condition}), ${needle}) > 0 OR
+        instr(lower(${record.symptoms}), ${needle}) > 0 OR
+        instr(lower(${record.facility}), ${needle}) > 0 OR
+        instr(lower(${record.prescriptionText}), ${needle}) > 0 OR
+        instr(lower(${record.comments}), ${needle}) > 0 OR
+        exists (
+          select 1 from doctor d
+          where d.id = ${record.doctorId} and instr(lower(d.name), ${needle}) > 0
+        )
+      )`);
+    }
+
+    return db
+      .select({
+        id: record.id,
+        date: record.date,
+        kind: record.kind,
+        title: record.title,
+        condition: record.condition,
+        doctorId: record.doctorId,
+        followUpOn: record.followUpOn,
+        updatedAt: record.updatedAt,
+      })
+      .from(record)
+      .where(and(...conditions))
+      .orderBy(desc(record.date), desc(record.createdAt), desc(record.id))
+      .limit(filter?.limit ?? 500)
+      .offset(filter?.offset ?? 0)
+      .all();
+  };
+
+  return {
+    create(personId, input) {
+      const now = deps.now();
+      const id = deps.newId();
+      try {
+        db.transaction((tx) => {
+          tx.insert(record)
+            .values({
+              id,
+              personId,
+              date: input.date,
+              kind: input.kind,
+              title: input.title.trim(),
+              symptoms: JSON.stringify(input.symptoms ?? []),
+              condition: input.condition?.trim() ?? '',
+              doctorId: input.doctorId ?? null,
+              facility: input.facility?.trim() ?? '',
+              prescriptionText: input.prescriptionText?.trim() ?? '',
+              comments: input.comments?.trim() ?? '',
+              followUpOn: input.followUpOn ?? null,
+              createdAt: now,
+              updatedAt: now,
+            })
+            .run();
+          insertChildren(tx, personId, id, input, now);
+        });
+        return ok(id);
+      } catch (error) {
+        return err(appError('DB_FAILURE', 'Could not save the record.', error));
+      }
+    },
+
+    update(personId, recordId, input) {
+      if (!ownedRecord(personId, recordId)) {
+        return err(appError('DB_FAILURE', `No record ${recordId} for this person.`));
+      }
+      const now = deps.now();
+      try {
+        db.transaction((tx) => {
+          tx.update(record)
+            .set({
+              date: input.date,
+              kind: input.kind,
+              title: input.title.trim(),
+              symptoms: JSON.stringify(input.symptoms ?? []),
+              condition: input.condition?.trim() ?? '',
+              doctorId: input.doctorId ?? null,
+              facility: input.facility?.trim() ?? '',
+              prescriptionText: input.prescriptionText?.trim() ?? '',
+              comments: input.comments?.trim() ?? '',
+              followUpOn: input.followUpOn ?? null,
+              updatedAt: now,
+            })
+            .where(and(eq(record.id, recordId), eq(record.personId, personId)))
+            .run();
+
+          // Children are replaced wholesale: the form holds the complete set, and a diff would
+          // leave stale readings behind whenever a row was cleared.
+          tx.delete(medication).where(eq(medication.recordId, recordId)).run();
+          tx.delete(testResult).where(eq(testResult.recordId, recordId)).run();
+          tx.delete(measurement).where(eq(measurement.recordId, recordId)).run();
+          insertChildren(tx, personId, recordId, input, now);
+        });
+        return ok(true);
+      } catch (error) {
+        return err(appError('DB_FAILURE', 'Could not update the record.', error));
+      }
+    },
+
+    getDetail(personId, recordId) {
+      const row = ownedRecord(personId, recordId);
+      if (!row) return null;
+      return {
+        record: toRecordView(row),
+        medications: db
+          .select()
+          .from(medication)
+          .where(eq(medication.recordId, recordId))
+          .orderBy(asc(medication.id))
+          .all(),
+        readings: db
+          .select()
+          .from(testResult)
+          .where(eq(testResult.recordId, recordId))
+          .orderBy(asc(testResult.id))
+          .all(),
+        measurements: db
+          .select()
+          .from(measurement)
+          .where(eq(measurement.recordId, recordId))
+          .orderBy(asc(measurement.kind), asc(measurement.id))
+          .all(),
+      };
+    },
+
+    listSummaries,
+
+    recent: (personId, limit = 5) => listSummaries(personId, { limit }),
+
+    count(personId) {
+      const row = db
+        .select({ n: sql<number>`count(*)` })
+        .from(record)
+        .where(eq(record.personId, personId))
+        .get();
+      return Number(row?.n ?? 0);
+    },
+
+    remove(personId, recordId) {
+      if (!ownedRecord(personId, recordId)) {
+        return err(appError('DB_FAILURE', `No record ${recordId} for this person.`));
+      }
+      try {
+        db.transaction((tx) => {
+          tx.delete(record)
+            .where(and(eq(record.id, recordId), eq(record.personId, personId)))
+            .run();
+        });
+        return ok(true);
+      } catch (error) {
+        return err(appError('DB_FAILURE', 'Could not delete the record.', error));
+      }
+    },
+  };
+}

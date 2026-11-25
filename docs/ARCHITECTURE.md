@@ -58,11 +58,29 @@ Rules:
 - Attachments store **relative** paths; the FileStore resolves them.
 - Profile values are derived from `measurement` rows, so editing a record simply recomputes.
 
+## Data core (Phase 1)
+
+```
+src/data/schema.ts          Drizzle table definitions + inferred row types
+src/data/migrations.ts      ordered, forward-only SQL migration modules
+src/data/migrate.ts         applies migrations above PRAGMA user_version
+src/data/db.ts              the one app connection: WAL, foreign_keys, migrate
+src/data/repositories/*     the only code that touches Drizzle; sync + Result
+src/data/testing/*          node:sqlite harness used by tests only
+```
+
+- Writes go through `db.transaction((tx) => …)` with a **synchronous** callback (ADR-020).
+- Repositories take the database instance as an argument (`createRecordRepository(db)`), so tests build
+  one over an in-memory database and production builds one over `expo-sqlite`.
+- Every query is person-scoped; `personId` is a required first argument, never inferred from state.
+- Deleting a record cascades to its medications, readings and attachments (foreign keys are on for
+  every connection, not just the migration connection).
+
 ## Testing
 
-| Layer               | Tool                                                      |
-| ------------------- | --------------------------------------------------------- |
-| `domain`, `lib`     | Jest unit tests (~100% target)                            |
-| `data` repositories | Jest against a temp SQLite database, including migrations |
-| Components          | React Native Testing Library                              |
-| End-to-end          | Maestro flows in `.maestro/`                              |
+| Layer               | Tool                                                    |
+| ------------------- | ------------------------------------------------------- |
+| `domain`, `lib`     | Jest unit tests (~100% target)                          |
+| `data` repositories | Jest against a real in-memory SQLite database (ADR-019) |
+| Components          | React Native Testing Library                            |
+| End-to-end          | Maestro flows in `.maestro/`                            |

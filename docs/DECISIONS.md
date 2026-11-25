@@ -285,3 +285,129 @@ unchanged so a bad value is visible rather than silently blanked.
 - The native date picker still shows the OS's own format while open; the chosen value is echoed beneath
   it as `DD/MM/YYYY`.
 - Phase 4's PDF export must use the same helper so the printed output matches the app.
+
+---
+
+## ADR-018 Forward-only SQL migrations driven by `PRAGMA user_version`
+
+**Context.** Phase 1 introduces the first real schema. Migrations must run on first launch, must be
+reviewable in the pull request, and must be testable from every prior version. `drizzle-kit` is not a
+dependency, and its generated `migrations.js` bundle hides the SQL that actually runs.
+
+**Options.** (a) `drizzle-kit generate` + `drizzle-orm/expo-sqlite/migrator`; (b) ordered migration
+modules containing plain SQL, applied by a small runner that tracks `PRAGMA user_version`.
+
+**Decision.** (b). `src/data/migrations.ts` holds an immutable ordered list of
+`{ version, name, statements }`; `src/data/migrate.ts` applies every migration above the current
+`user_version`, each one inside a single transaction that also sets `user_version = N`. There are no
+down-migrations — a released version only ever moves forward.
+
+**Consequences.**
+
+- The SQL in the repository is exactly the SQL that runs on the device, so it can be reviewed and
+  tested directly.
+- `src/data/schema.ts` and the SQL are maintained by hand; a **schema-drift test** compares the
+  migrated database (`PRAGMA table_info` / `index_list` / `foreign_key_list`) against the Drizzle
+  definitions, so the two cannot silently diverge.
+- Every migration is tested from every prior version, which makes a future v2 covered automatically by
+  the existing loop rather than by a new bespoke test.
+- Adding `drizzle-kit` later stays possible: it can generate SQL that is copied into a new migration
+  module, without adopting its migrator.
+
+---
+
+## ADR-019 Repository tests run on real SQLite via Node's built-in `node:sqlite`
+
+**Context.** Repository behaviour (constraints, cascades, transactions) must be tested, not mocked.
+Jest cannot load the native `expo-sqlite` module, and Drizzle's expo driver talks to a synchronous
+client surface (`prepareSync` → `executeSync` / `executeForRawResultSync`).
+
+**Options.** (a) `better-sqlite3` dev dependency + Drizzle's `better-sqlite3` dialect; (b) a
+`node:sqlite`-backed shim implementing the expo-sqlite client surface, keeping the **same** Drizzle
+dialect as the app; (c) mocking Drizzle itself.
+
+**Decision.** (b). `src/data/testing/testDatabase.ts` opens `new DatabaseSync(':memory:')` and exposes
+`prepareSync`, which is the only client method the expo driver uses. Tests therefore exercise the real
+session, the real transaction handling and the real SQL, with **no new dependency** and no second
+dialect to keep in sync. Verified before implementing: real Drizzle queries, `ON DELETE CASCADE`,
+`PRAGMA user_version` and rollback all behaved correctly through the shim.
+
+**Consequences.**
+
+- `node:sqlite` is still marked experimental in Node 24 (it prints a warning and its API may change).
+  The risk is confined to one adapter file; swapping its internals for `better-sqlite3` would not touch
+  a single repository.
+- Tests declare `@jest-environment node` and stub `expo-sqlite`, because
+  `drizzle-orm/expo-sqlite/index.js` re-exports a live-query hook that imports the native module at
+  runtime.
+- This is a **test-only** dependency on a Node built-in: nothing in the app bundle changes, and the app
+  still ships only `expo-sqlite`.
+
+---
+
+## ADR-020 Repositories are synchronous, and transactions take synchronous callbacks
+
+**Context.** Drizzle's expo-sqlite session is synchronous: it prepares with `prepareSync`, executes with
+`executeSync`, and brackets a callback with `begin`/`commit`/`rollback` **without awaiting it**.
+
+**Options.** (a) wrap every repository call in `Promise.resolve()` for a future async driver; (b) expose
+the synchronous API the driver actually has.
+
+**Decision.** (b). Repository functions are synchronous and return `Result<T, AppError>`; every write
+uses `db.transaction((tx) => { … })` with a **synchronous** callback.
+
+**Consequences.**
+
+- A measured trap, not a theoretical one: an `async` transaction callback commits before its `throw`, so
+  the rollback never happens (observed during the Phase 1 probe: the "rolled back" row was still
+  present). Repository write paths are sync by design and a rollback test guards it.
+- Async work (file I/O in Phase 2, zip in Phase 5) stays outside repositories, in `fileStore`/platform
+  code, which is where it already belongs.
+- TanStack Query accepts synchronous `queryFn`/`mutationFn` results, so features are unaffected.
+- Long DB work runs on the JS thread. At one family's data volume this is milliseconds; it is revisited
+  only if a measurement shows otherwise.
+
+---
+
+## ADR-021 `@react-native-community/datetimepicker` for date entry
+
+**Context.** The record form needs a date picker. Phase 1 has no way to enter a date without either a
+native picker or a hand-built text field, and the phase spec requires a native picker with the chosen
+value echoed as `DD/MM/YYYY` (ADR-017).
+
+**Options.** (a) `@react-native-community/datetimepicker`; (b) a hand-rolled calendar; (c) a plain text
+field parsing `DD/MM/YYYY`.
+
+**Decision.** (a), at the version Expo pins for this SDK (`9.2.1` in `bundledNativeModules.json`), so the
+native side matches the platform toolchain. It requests no permissions, makes no network calls and adds
+no camera capability.
+
+**Consequences.**
+
+- One native rebuild per platform (prebuild + `pod install` / Gradle), which Continuous Native Generation
+  already makes routine (ADR-005).
+- The OS picker renders its own locale while open; the field beneath it always echoes `DD/MM/YYYY`, which
+  is the value the user is agreeing to.
+- If a future SDK drops it, the fallback is (c): a validated `DD/MM/YYYY` text field.
+
+---
+
+## ADR-022 Settings and the record draft live in `app_setting`
+
+**Context.** Phase 1 needs persistent preferences (units, BMI preset, active person, onboarding state)
+and a record draft that survives the app being killed. No key-value storage dependency is installed.
+
+**Options.** (a) add `@react-native-async-storage/async-storage`; (b) store both in the existing
+`app_setting` table behind the settings repository.
+
+**Decision.** (b). Values are JSON-encoded TEXT under stable keys (`settings.units`, `settings.bmiPreset`,
+`settings.activePersonId`, `settings.onboardedAt`, `draft.record`), read through one typed accessor that
+applies defaults and Zod validation.
+
+**Consequences.**
+
+- One storage mechanism, one backup path (Phase 5 exports the database anyway), and no new dependency.
+- Draft writes are debounced (~400 ms) and the payload is capped at 64 KB so a runaway form cannot bloat
+  the database; the draft is cleared on save or explicit discard.
+- Backups therefore include the draft. That is acceptable for a single-family device and is simpler than
+  a separate file.

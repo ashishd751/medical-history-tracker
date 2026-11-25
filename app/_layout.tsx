@@ -5,6 +5,7 @@ import { useEffect } from 'react';
 import { useColorScheme, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import { AppProviders } from '@/features/shell/AppProviders';
 import { logger } from '@/lib/logger';
 import { AppThemeProvider, useAppTheme } from '@/ui/ThemeProvider';
 
@@ -47,7 +48,9 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <AppThemeProvider scheme={scheme}>
         <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
-        <ThemedNavigator />
+        <AppProviders>
+          <ThemedNavigator />
+        </AppProviders>
       </AppThemeProvider>
     </SafeAreaProvider>
   );

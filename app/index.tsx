@@ -1,58 +1,35 @@
-import { useRouter } from 'expo-router';
-import { ScrollView, StyleSheet, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-
-import { AppButton, AppCard, AppText, spacing, strings } from '@/ui';
-
 /**
- * Placeholder route for Phase 0. Phase 1 replaces this with the onboarding/home
- * redirect. It exists so the app launches on both devices during the spikes.
+ * First stop: decide between onboarding and Home.
+ *
+ * The redirect keeps route files thin — every screen lives in a feature.
  */
+import { Redirect } from 'expo-router';
+
+import { userMessage } from '@/lib/errors';
+import { useSession } from '@/lib/session';
+import { AppEmptyState, AppScreen, AppText, strings } from '@/ui';
+
 export default function IndexScreen() {
-  const insets = useSafeAreaInsets();
-  const router = useRouter();
+  const { ready, error, onboarded, personId } = useSession();
 
-  return (
-    <ScrollView
-      contentContainerStyle={[
-        styles.container,
-        { paddingTop: insets.top + spacing.xl, paddingBottom: insets.bottom + spacing.xl },
-      ]}
-    >
-      <AppText variant="display" accessibilityRole="header">
-        {strings.app.name}
-      </AppText>
-      <AppText variant="body" color="muted">
-        {strings.app.disclaimer}
-      </AppText>
+  if (error) {
+    return (
+      <AppScreen title={strings.app.name} testID="boot-error">
+        <AppEmptyState title={strings.errors.unknown} message={userMessage(error)} />
+      </AppScreen>
+    );
+  }
 
-      <AppCard>
-        <AppText variant="subtitle">Phase 0: foundations</AppText>
+  if (!ready) {
+    return (
+      <AppScreen title={strings.app.name}>
         <AppText variant="body" color="muted">
-          Scaffold, tooling, design tokens and library spikes. No medical data is stored yet.
+          {strings.common.loading}
         </AppText>
-      </AppCard>
+      </AppScreen>
+    );
+  }
 
-      <View style={styles.actions}>
-        <AppButton
-          label="Open design system spike"
-          variant="secondary"
-          onPress={() => router.push('/dev/gallery')}
-        />
-        <AppButton
-          label="Run library spikes"
-          variant="quiet"
-          onPress={() => router.push('/dev/spikes')}
-        />
-      </View>
-    </ScrollView>
-  );
+  if (!onboarded || !personId) return <Redirect href="/onboarding" />;
+  return <Redirect href="/(tabs)/home" />;
 }
-
-const styles = StyleSheet.create({
-  container: {
-    paddingHorizontal: spacing.lg,
-    gap: spacing.lg,
-  },
-  actions: { gap: spacing.sm },
-});

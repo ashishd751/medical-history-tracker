@@ -1,3 +1,5 @@
+import { type AppRepositories, getRepositories } from './repositories';
+
 export { type AppDatabase, DATABASE_NAME, getAppDatabase, resetAppDatabase } from './db';
 export { LATEST_SCHEMA_VERSION } from './migrations';
 export {
@@ -7,8 +9,10 @@ export {
   type DoctorRepository,
   getRepositories,
   type MeasurementRepository,
+  type MedicationInput,
   type MedicationRepository,
   type PersonRepository,
+  type ReadingInput,
   type RecordDetail,
   type RecordFilter,
   type RecordFormInput,
@@ -18,6 +22,7 @@ export {
   SETTING_KEYS,
   type SettingsRepository,
   type TestResultRepository,
+  type VitalInput,
 } from './repositories';
 export type {
   AttachmentRow,
@@ -28,3 +33,16 @@ export type {
   RecordRow,
   TestResultRow,
 } from './schema';
+
+/**
+ * The repositories, or a thrown error.
+ *
+ * Screens only render after `app/index.tsx` has confirmed the database opened (the session
+ * carries the failure otherwise), so reaching this with a broken database means a real bug.
+ * Throwing keeps the happy path readable inside a query function.
+ */
+export function requireRepositories(): AppRepositories {
+  const result = getRepositories();
+  if (!result.ok) throw result.error;
+  return result.value;
+}

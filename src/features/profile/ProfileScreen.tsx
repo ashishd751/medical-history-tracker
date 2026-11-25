@@ -1,0 +1,201 @@
+import { useQuery } from '@tanstack/react-query';
+import { useState } from 'react';
+import { StyleSheet, View } from 'react-native';
+
+import { requireRepositories } from '@/data';
+import { BLOOD_TYPES, type BloodType, bmiCategory, computeBmi } from '@/domain';
+import { formatDisplayDate, isValidIsoDate } from '@/lib/dates';
+import { useSession } from '@/lib/session';
+import {
+  AppBanner,
+  AppButton,
+  AppCard,
+  AppChip,
+  AppDateField,
+  AppEmptyState,
+  AppField,
+  AppScreen,
+  AppSheet,
+  AppText,
+  bloodTypeLabel,
+  bmiCategoryLabel,
+  formatBmi,
+  formatHeight,
+  formatWeight,
+  sexLabel,
+  spacing,
+  strings,
+} from '@/ui';
+
+/**
+ * Read-only profile with an inline edit sheet. Measurement history and profile sync are
+ * Phase 3; this shows the derived snapshot and the facts stored on the person row.
+ */
+export function ProfileScreen() {
+  const { personId, unitSystem, bmiPreset, refresh } = useSession();
+  const id = personId ?? '';
+
+  const person = useQuery({
+    queryKey: ['person', id],
+    queryFn: () => requireRepositories().people.getById(id),
+    enabled: id !== '',
+  });
+  const vitals = useQuery({
+    queryKey: ['vitals', id],
+    queryFn: () => requireRepositories().measurements.latestVitals(id),
+    enabled: id !== '',
+  });
+
+  const [editing, setEditing] = useState(false);
+  const [name, setName] = useState('');
+  const [dob, setDob] = useState('');
+  const [bloodType, setBloodType] = useState<BloodType | null>(null);
+  const [allergies, setAllergies] = useState('');
+  const [chronic, setChronic] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [saved, setSaved] = useState(false);
+
+  const record = person.data;
+
+  const openEditor = () => {
+    if (!record) return;
+    setName(record.name);
+    setDob(record.dob);
+    setBloodType(record.bloodType);
+    setAllergies(record.allergies ?? '');
+    setChronic(record.chronicConditions ?? '');
+    setError(null);
+    setEditing(true);
+  };
+
+  const save = () => {
+    if (!record) return;
+    if (!name.trim() || !isValidIsoDate(dob)) {
+      setError(strings.onboarding.required);
+      return;
+    }
+    const result = requireRepositories().people.update(record.id, {
+      name: name.trim(),
+      dob,
+      bloodType,
+      allergies: allergies.trim() || null,
+      chronicConditions: chronic.trim() || null,
+    });
+    if (!result.ok) {
+      setError(strings.errors.db);
+      return;
+    }
+    setEditing(false);
+    setSaved(true);
+    refresh();
+  };
+
+  if (!record) {
+    return (
+      <AppScreen title={strings.profile.title} testID="screen-profile">
+        <AppEmptyState title={strings.common.loading} />
+      </AppScreen>
+    );
+  }
+
+  const height = vitals.data?.height;
+  const weight = vitals.data?.weight;
+  const bmi = height && weight ? computeBmi(height.v1, weight.v1) : null;
+
+  return (
+    <AppScreen
+      title={record.name}
+      eyebrow={strings.profile.title}
+      right={<AppButton label={strings.profile.editProfile} variant="quiet" onPress={openEditor} />}
+      testID="screen-profile"
+    >
+      {saved ? <AppBanner tone="success" message={strings.profile.saved} /> : null}
+
+      <AppCard>
+        <Row label={strings.profile.dob} value={formatDisplayDate(record.dob)} />
+        <Row label={strings.profile.sex} value={sexLabel(record.sex)} />
+        <Row label={strings.home.bloodType} value={bloodTypeLabel(record.bloodType)} />
+        <Row
+          label={strings.home.height}
+          value={height ? formatHeight(height.v1, unitSystem) : '—'}
+        />
+        <Row
+          label={strings.home.weight}
+          value={weight ? formatWeight(weight.v1, unitSystem) : '—'}
+        />
+        {bmi !== null ? (
+          <Row
+            label={strings.home.bmi}
+            value={`${formatBmi(bmi)} · ${bmiCategoryLabel(bmiCategory(bmi, bmiPreset))}`}
+          />
+        ) : null}
+        <Row label={strings.profile.allergies} value={record.allergies ?? strings.common.none} />
+        <Row
+          label={strings.profile.chronicConditions}
+          value={record.chronicConditions ?? strings.common.none}
+        />
+      </AppCard>
+
+      <AppText variant="caption" color="muted">
+        {strings.profile.historyHint}
+      </AppText>
+      <AppText variant="caption" color="muted">
+        {strings.app.disclaimer}
+      </AppText>
+
+      <AppSheet
+        visible={editing}
+        onDismiss={() => setEditing(false)}
+        title={strings.profile.editProfile}
+        testID="edit-profile-sheet"
+      >
+        <View style={styles.sheet}>
+          {error ? <AppBanner tone="danger" message={error} /> : null}
+          <AppField label={strings.onboarding.name} value={name} onChangeText={setName} />
+          <AppDateField label={strings.onboarding.dob} value={dob} onChange={setDob} />
+          <AppText variant="caption" color="muted">
+            {strings.home.bloodType}
+          </AppText>
+          <View style={styles.chips}>
+            {BLOOD_TYPES.map((type) => (
+              <AppChip
+                key={type}
+                label={type}
+                selected={bloodType === type}
+                onPress={() => setBloodType(bloodType === type ? null : type)}
+              />
+            ))}
+          </View>
+          <AppField
+            label={strings.profile.allergies}
+            value={allergies}
+            onChangeText={setAllergies}
+          />
+          <AppField
+            label={strings.profile.chronicConditions}
+            value={chronic}
+            onChangeText={setChronic}
+          />
+          <AppButton label={strings.common.save} onPress={save} fullWidth testID="save-profile" />
+        </View>
+      </AppSheet>
+    </AppScreen>
+  );
+}
+
+function Row({ label, value }: { label: string; value: string }) {
+  return (
+    <View style={styles.row}>
+      <AppText variant="caption" color="muted">
+        {label}
+      </AppText>
+      <AppText variant="body">{value}</AppText>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  row: { gap: 2, marginBottom: spacing.sm },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs },
+  sheet: { gap: spacing.sm },
+});

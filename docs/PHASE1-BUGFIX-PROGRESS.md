@@ -1,0 +1,33 @@
+# Phase 1 bugfix pass — progress
+
+Branch `bugfix/phase-1`, based on `a9a4c46 "fix(ui): phase-1 interim fixes"` (which is `main@64f4c7a`
+plus the interim UI commit). One task per commit; the gate runs before every commit:
+
+```bash
+npm run typecheck && npm run lint && npm run deps:check && npm run format:check && npm test
+```
+
+Baseline at `a9a4c46`: typecheck, lint, dependency rules (106 modules) and Prettier pass; Jest is
+**17 suites / 125 tests**. Nothing in this pass has been verified on a device.
+
+## Checklist
+
+- [x] **T1. Progress file and baseline.** Gate re-run at `a9a4c46`: 17 suites / 125 tests pass.
+- [ ] **T2. Fix R3 (double bottom inset).** `AppScreen` bottom inset becomes opt-in.
+- [ ] **T3. Fix R4 (record count).** Repository `count()` + real total in the Records header.
+- [ ] **T4. Fix R5 (tab label token).** `typography.tabLabel` token, no hard-coded size.
+- [ ] **T5. Redesign the Profile page (R1).** Two-column fact grid + full-width rows; `AppChoiceGrid`
+      for blood type.
+- [ ] **T6. Tests (R6).** Search, cascade, rebuild, `AppChoiceGrid`, Profile layout.
+- [ ] **T7. Search benchmark.** `npm run bench:search`, numbers recorded for ADR-023.
+- [ ] **T8. Debounce (R8).** Only if trivial; otherwise recorded as not done.
+- [ ] **T9. Documentation (R2).** ADR-023 to ADR-027, `PHASES.md`, `README.md`,
+      `ARCHITECTURE.md`, `AGENTS.md`, test counts.
+- [ ] **T10. Final gate and report.** Full gate output plus the manual device QA checklist.
+
+## Assumptions and notes
+
+- The branch is the only place for this work; nothing is pushed, merged or opened as a PR.
+- Code already cites **ADR-023** (FTS search) and **ADR-024** (pagination); those numbers are kept.
+- Maestro asserts the exact strings `1 record` and `0 records`
+  (`.maestro/records/create-manual.yaml`); the count work must keep them valid.

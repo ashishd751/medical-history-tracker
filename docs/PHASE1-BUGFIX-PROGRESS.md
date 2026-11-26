@@ -43,7 +43,9 @@ Baseline at `a9a4c46`: typecheck, lint, dependency rules (106 modules) and Prett
       ADR-026 (bottom safe-area rule), ADR-027 (filters, debounce, tab label, Profile). `PHASES.md`
       (bugfix sub-list; Phase 8 pagination removed), `README.md` (status, 23 suites / 155 tests),
       `ARCHITECTURE.md` (search index, UI system, async RNTL), `AGENTS.md` (no `VACUUM`).
-- [ ] **T10. Final gate and report.** Full gate output plus the manual device QA checklist.
+- [x] **T10. Final gate and report.** Final gate green on this tree: typecheck, lint, dependency rules
+      (115 modules), Prettier, **23 suites / 155 tests**. Manual device QA is listed in the hand-off
+      report; no visual claim is made from CI. Nothing was pushed.
 
 ## Assumptions and notes
 

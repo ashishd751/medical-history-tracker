@@ -1,3 +1,4 @@
+export * from './attachments';
 export * from './bloodPressure';
 export * from './bmi';
 export * from './limits';

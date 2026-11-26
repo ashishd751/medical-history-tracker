@@ -5,6 +5,7 @@
  * enum becomes a word. Screens must use these helpers instead of building their own maps.
  */
 import type {
+  AttachmentRole,
   BloodType,
   BmiCategory,
   BpCategory,
@@ -19,6 +20,10 @@ import { strings } from './strings';
 
 export function recordKindLabel(kind: RecordKind): string {
   return strings.labels.recordKind[kind];
+}
+
+export function attachmentRoleLabel(role: AttachmentRole): string {
+  return strings.labels.attachmentRole[role];
 }
 
 export function sexLabel(sex: Sex): string {

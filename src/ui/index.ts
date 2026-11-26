@@ -14,6 +14,7 @@ export {
   MONTH_NAMES,
 } from './format';
 export {
+  attachmentRoleLabel,
   bloodTypeLabel,
   bmiCategoryLabel,
   bpCategoryLabel,

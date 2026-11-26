@@ -9,6 +9,9 @@ export type AppErrorCode =
   | 'CANCELLED'
   | 'FILE_NOT_FOUND'
   | 'FILE_WRITE_FAILED'
+  | 'UNSUPPORTED_FILE_TYPE'
+  | 'FILE_TOO_LARGE'
+  | 'FILE_CORRUPT'
   | 'DB_FAILURE'
   | 'PERMISSION_DENIED'
   | 'VALIDATION_FAILED'
@@ -37,6 +40,9 @@ const userMessages: Record<AppErrorCode, string> = {
   CANCELLED: '',
   FILE_NOT_FOUND: strings.errors.fileNotFound,
   FILE_WRITE_FAILED: strings.errors.fileWrite,
+  UNSUPPORTED_FILE_TYPE: strings.attachments.unsupportedType,
+  FILE_TOO_LARGE: strings.errors.fileTooLarge,
+  FILE_CORRUPT: strings.attachments.corrupt,
   DB_FAILURE: strings.errors.db,
   PERMISSION_DENIED: strings.errors.permissionDenied,
   VALIDATION_FAILED: strings.errors.unknown,

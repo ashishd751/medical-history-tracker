@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet, useWindowDimensions, View } from 'react-native';
 
 import { spacing } from '../tokens';
 import { AppText } from './AppText';
@@ -29,7 +29,12 @@ export interface AppFactGridProps {
  * styles.
  */
 export function AppFactGrid({ facts, columns = 2 }: AppFactGridProps) {
-  const width: `${number}%` = `${100 / columns}%`;
+  // At very large OS text sizes a two-column tile is too narrow for a date or a unit: the date
+  // wrapped mid-string on the iOS simulator at accessibility XL. Collapse to one column instead,
+  // so every value stays whole and the page simply gets taller (tested on device).
+  const { fontScale } = useWindowDimensions();
+  const effectiveColumns = fontScale >= 1.5 ? 1 : columns;
+  const width: `${number}%` = `${100 / effectiveColumns}%`;
 
   return (
     <View style={styles.grid}>

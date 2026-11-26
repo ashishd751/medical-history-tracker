@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { KeyboardAvoidingView, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useAppTheme } from '../ThemeProvider';
@@ -12,6 +12,14 @@ export interface AppScreenProps {
   children: ReactNode;
   /** Defaults to true. Forms that pin a footer set this to false. */
   scroll?: boolean;
+  /**
+   * Pads the screen's bottom edge with the safe-area inset. Defaults to false.
+   *
+   * Only screens outside the tab navigator that pin a footer to the bottom need this (ADR-026):
+   * tab screens already sit above a tab bar that clears the home indicator, so padding again
+   * would leave a double gap.
+   */
+  safeAreaBottom?: boolean;
   onBack?: (() => void) | undefined;
   right?: ReactNode;
   eyebrow?: string | undefined;
@@ -28,6 +36,7 @@ export function AppScreen({
   title,
   children,
   scroll = true,
+  safeAreaBottom = false,
   onBack,
   right,
   eyebrow,
@@ -61,6 +70,17 @@ export function AppScreen({
     </View>
   );
 
+  const body = scroll ? (
+    <ScrollView
+      contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + spacing.xxl }]}
+      keyboardShouldPersistTaps="handled"
+    >
+      {children}
+    </ScrollView>
+  ) : (
+    <View style={[styles.flex, styles.content]}>{children}</View>
+  );
+
   return (
     <View
       testID={testID}
@@ -69,19 +89,22 @@ export function AppScreen({
         {
           backgroundColor: colors.background,
           paddingTop: insets.top + spacing.md,
+          // Screens with a pinned footer (forms, onboarding) opt in: their footer must clear the
+          // home indicator, or the button sits half under it. Scrollable content keeps its own
+          // bottom padding below, so a tab screen is never padded twice (ADR-026).
+          paddingBottom: !scroll && safeAreaBottom ? insets.bottom : 0,
         },
       ]}
     >
       {header}
-      {scroll ? (
-        <ScrollView
-          contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + spacing.xxl }]}
-          keyboardShouldPersistTaps="handled"
-        >
-          {children}
-        </ScrollView>
+      {safeAreaBottom && !scroll ? (
+        // A pinned footer must also clear the software keyboard, not just the home indicator.
+        // Without this the Save button sat behind the keyboard on Android (device QA, ADR-026).
+        <KeyboardAvoidingView testID="keyboard-avoiding" style={styles.flex} behavior="padding">
+          {body}
+        </KeyboardAvoidingView>
       ) : (
-        <View style={[styles.flex, styles.content]}>{children}</View>
+        body
       )}
     </View>
   );

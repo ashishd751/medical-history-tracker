@@ -49,6 +49,11 @@ export default [
     },
   },
   {
+    // The search benchmark is a command-line report: stdout is its entire output (ADR-023).
+    files: ['scripts/**/*.mjs'],
+    rules: { 'no-console': 'off' },
+  },
+  {
     // Test files may use jest globals.
     files: ['**/*.test.{ts,tsx}', 'jest.setup.ts'],
     languageOptions: {

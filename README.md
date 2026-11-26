@@ -3,8 +3,9 @@
 A private, offline medical-history app for one family. Everything stays on the device: no backend,
 no account, no analytics, no camera, no notifications.
 
-**Status:** Phase 1 (data core and manual records) complete: offline SQLite storage, onboarding,
-and create/edit/delete/browse for records. No file attachments yet (Phase 2).
+**Status:** Phase 1 (data core and manual records) complete, including its review pass: a paginated
+timeline, FTS5 symptom search, truthful result counts and the UI fixes from the review (ADR-023 to
+ADR-029). 27 Jest suites / 162 tests. No file attachments yet (Phase 2).
 
 ## Requirements
 

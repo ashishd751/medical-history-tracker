@@ -170,6 +170,7 @@ export function RecordFormScreen({ recordId }: { recordId?: string }) {
       title={recordId ? strings.recordForm.editTitle : strings.recordForm.newTitle}
       onBack={() => (isDirty ? setLeaveOpen(true) : router.back())}
       scroll={false}
+      safeAreaBottom
       testID="screen-record-form"
     >
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">

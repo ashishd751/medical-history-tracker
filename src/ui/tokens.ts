@@ -46,6 +46,8 @@ export const typography = {
   subtitle: { fontSize: 18, lineHeight: 24, fontWeight: '600' },
   body: { fontSize: 16, lineHeight: 24, fontWeight: '400' },
   label: { fontSize: 14, lineHeight: 20, fontWeight: '600' },
+  /** Bottom tab labels. Slightly larger than `label` so they read at a glance (Phase 1 review). */
+  tabLabel: { fontSize: 15, lineHeight: 20, fontWeight: '600' },
   caption: { fontSize: 13, lineHeight: 18, fontWeight: '400' },
 } as const;
 

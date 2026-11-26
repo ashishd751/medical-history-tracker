@@ -142,6 +142,40 @@ export const MIGRATIONS: readonly Migration[] = [
       'CREATE INDEX attachment_record_id_idx ON attachment (record_id)',
     ],
   },
+  {
+    version: 2,
+    name: 'full-text search over records',
+    statements: [
+      // Substring search over years of records cannot use a B-tree, so the searchable columns
+      // live in an FTS5 index. The trigram tokenizer is what makes `coug` match "cough" and
+      // `ache` match "headache" — the behaviour a person typing a symptom expects (ADR-023).
+      `CREATE VIRTUAL TABLE record_fts USING fts5(
+        title, condition, symptoms, facility, prescription_text, comments,
+        content='record',
+        content_rowid='rowid',
+        tokenize='trigram'
+      )`,
+      // Backfill so records created before this migration are searchable too.
+      `INSERT INTO record_fts (rowid, title, condition, symptoms, facility, prescription_text, comments)
+       SELECT rowid, title, condition, symptoms, facility, prescription_text, comments FROM record`,
+      // External-content indexes are maintained by the writer; these triggers keep the index in
+      // step with every insert, update and delete, including the cascade from a deleted person.
+      `CREATE TRIGGER record_fts_ai AFTER INSERT ON record BEGIN
+         INSERT INTO record_fts (rowid, title, condition, symptoms, facility, prescription_text, comments)
+         VALUES (new.rowid, new.title, new.condition, new.symptoms, new.facility, new.prescription_text, new.comments);
+       END`,
+      `CREATE TRIGGER record_fts_ad AFTER DELETE ON record BEGIN
+         INSERT INTO record_fts (record_fts, rowid, title, condition, symptoms, facility, prescription_text, comments)
+         VALUES ('delete', old.rowid, old.title, old.condition, old.symptoms, old.facility, old.prescription_text, old.comments);
+       END`,
+      `CREATE TRIGGER record_fts_au AFTER UPDATE ON record BEGIN
+         INSERT INTO record_fts (record_fts, rowid, title, condition, symptoms, facility, prescription_text, comments)
+         VALUES ('delete', old.rowid, old.title, old.condition, old.symptoms, old.facility, old.prescription_text, old.comments);
+         INSERT INTO record_fts (rowid, title, condition, symptoms, facility, prescription_text, comments)
+         VALUES (new.rowid, new.title, new.condition, new.symptoms, new.facility, new.prescription_text, new.comments);
+       END`,
+    ],
+  },
 ];
 
 /** The version a freshly migrated database must report. */

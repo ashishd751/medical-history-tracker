@@ -3,7 +3,7 @@ import { StyleSheet, View } from 'react-native';
 
 import { FACILITY_KINDS, RECORD_KINDS, type RecordKind } from '@/domain';
 import {
-  AppChip,
+  AppChoiceGrid,
   AppDateField,
   AppField,
   AppTagInput,
@@ -14,6 +14,8 @@ import {
 } from '@/ui';
 
 import type { RecordFormValues } from '../recordFormSchema';
+
+const KIND_OPTIONS = RECORD_KINDS.map((kind) => ({ value: kind, label: recordKindLabel(kind) }));
 
 export interface RecordBasicsFieldsProps {
   control: Control<RecordFormValues>;
@@ -56,16 +58,17 @@ export function RecordBasicsFields({
         )}
       />
 
-      <View style={styles.chips}>
-        {RECORD_KINDS.map((option) => (
-          <AppChip
-            key={option}
-            label={recordKindLabel(option)}
-            selected={kind === option}
-            onPress={() => onChangeKind(option)}
-            testID={`form-kind-${option}`}
-          />
-        ))}
+      <View>
+        <AppText variant="caption" color="muted">
+          {strings.recordForm.kind}
+        </AppText>
+        <AppChoiceGrid
+          options={KIND_OPTIONS}
+          selected={kind}
+          onSelect={onChangeKind}
+          columns={3}
+          testIDPrefix="form-kind"
+        />
       </View>
 
       <Controller
@@ -159,5 +162,4 @@ export function RecordBasicsFields({
 
 const styles = StyleSheet.create({
   root: { gap: spacing.md },
-  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs },
 });

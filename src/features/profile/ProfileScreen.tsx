@@ -7,12 +7,15 @@ import { BLOOD_TYPES, type BloodType, bmiCategory, computeBmi } from '@/domain';
 import { formatDisplayDate, isValidIsoDate } from '@/lib/dates';
 import { useSession } from '@/lib/session';
 import {
+  AppBadge,
   AppBanner,
   AppButton,
   AppCard,
-  AppChip,
+  AppChoiceGrid,
   AppDateField,
   AppEmptyState,
+  type AppFact,
+  AppFactGrid,
   AppField,
   AppScreen,
   AppSheet,
@@ -25,6 +28,7 @@ import {
   sexLabel,
   spacing,
   strings,
+  useAppTheme,
 } from '@/ui';
 
 /**
@@ -33,6 +37,7 @@ import {
  */
 export function ProfileScreen() {
   const { personId, unitSystem, bmiPreset, refresh } = useSession();
+  const { colors } = useAppTheme();
   const id = personId ?? '';
 
   const person = useQuery({
@@ -102,6 +107,49 @@ export function ProfileScreen() {
   const weight = vitals.data?.weight;
   const bmi = height && weight ? computeBmi(height.v1, weight.v1) : null;
 
+  // Six short facts in two columns use the whole card width; long free text goes full width below.
+  const facts: AppFact[] = [
+    { label: strings.profile.dob, value: formatDisplayDate(record.dob), testID: 'profile-dob' },
+    { label: strings.profile.sex, value: sexLabel(record.sex), testID: 'profile-sex' },
+    {
+      label: strings.home.bloodType,
+      value: bloodTypeLabel(record.bloodType),
+      testID: 'profile-blood-type',
+    },
+    {
+      label: strings.home.bmi,
+      value: bmi !== null ? formatBmi(bmi) : '—',
+      accessory:
+        bmi !== null ? (
+          <AppBadge label={bmiCategoryLabel(bmiCategory(bmi, bmiPreset))} tone="info" />
+        ) : undefined,
+      testID: 'profile-bmi',
+    },
+    {
+      label: strings.home.height,
+      value: height ? formatHeight(height.v1, unitSystem) : '—',
+      testID: 'profile-height',
+    },
+    {
+      label: strings.home.weight,
+      value: weight ? formatWeight(weight.v1, unitSystem) : '—',
+      testID: 'profile-weight',
+    },
+  ];
+
+  const medicalFacts: AppFact[] = [
+    {
+      label: strings.profile.allergies,
+      value: record.allergies ?? strings.common.none,
+      testID: 'profile-allergies',
+    },
+    {
+      label: strings.profile.chronicConditions,
+      value: record.chronicConditions ?? strings.common.none,
+      testID: 'profile-chronic-conditions',
+    },
+  ];
+
   return (
     <AppScreen
       title={record.name}
@@ -112,28 +160,9 @@ export function ProfileScreen() {
       {saved ? <AppBanner tone="success" message={strings.profile.saved} /> : null}
 
       <AppCard>
-        <Row label={strings.profile.dob} value={formatDisplayDate(record.dob)} />
-        <Row label={strings.profile.sex} value={sexLabel(record.sex)} />
-        <Row label={strings.home.bloodType} value={bloodTypeLabel(record.bloodType)} />
-        <Row
-          label={strings.home.height}
-          value={height ? formatHeight(height.v1, unitSystem) : '—'}
-        />
-        <Row
-          label={strings.home.weight}
-          value={weight ? formatWeight(weight.v1, unitSystem) : '—'}
-        />
-        {bmi !== null ? (
-          <Row
-            label={strings.home.bmi}
-            value={`${formatBmi(bmi)} · ${bmiCategoryLabel(bmiCategory(bmi, bmiPreset))}`}
-          />
-        ) : null}
-        <Row label={strings.profile.allergies} value={record.allergies ?? strings.common.none} />
-        <Row
-          label={strings.profile.chronicConditions}
-          value={record.chronicConditions ?? strings.common.none}
-        />
+        <AppFactGrid facts={facts} columns={2} />
+        <View style={[styles.divider, { backgroundColor: colors.border }]} />
+        <AppFactGrid facts={medicalFacts} columns={1} />
       </AppCard>
 
       <AppText variant="caption" color="muted">
@@ -156,16 +185,13 @@ export function ProfileScreen() {
           <AppText variant="caption" color="muted">
             {strings.home.bloodType}
           </AppText>
-          <View style={styles.chips}>
-            {BLOOD_TYPES.map((type) => (
-              <AppChip
-                key={type}
-                label={type}
-                selected={bloodType === type}
-                onPress={() => setBloodType(bloodType === type ? null : type)}
-              />
-            ))}
-          </View>
+          <AppChoiceGrid
+            options={BLOOD_TYPES.map((type) => ({ value: type, label: type }))}
+            selected={bloodType}
+            onSelect={(type) => setBloodType(bloodType === type ? null : type)}
+            columns={4}
+            testIDPrefix="blood-type"
+          />
           <AppField
             label={strings.profile.allergies}
             value={allergies}
@@ -183,19 +209,7 @@ export function ProfileScreen() {
   );
 }
 
-function Row({ label, value }: { label: string; value: string }) {
-  return (
-    <View style={styles.row}>
-      <AppText variant="caption" color="muted">
-        {label}
-      </AppText>
-      <AppText variant="body">{value}</AppText>
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
-  row: { gap: 2, marginBottom: spacing.sm },
-  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs },
+  divider: { height: StyleSheet.hairlineWidth, marginVertical: spacing.xs },
   sheet: { gap: spacing.sm },
 });

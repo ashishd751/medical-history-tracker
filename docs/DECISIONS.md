@@ -414,3 +414,319 @@ applies defaults and Zod validation.
   the database; the draft is cleared on save or explicit discard.
 - Backups therefore include the draft. That is acceptable for a single-family device and is simpler than
   a separate file.
+
+---
+
+## ADR-023 Full-text search over records uses FTS5 with the trigram tokenizer
+
+**Context.** The timeline searches title, condition, symptoms, facility, prescription text, comments and
+the doctor's name. Symptoms are the field people actually search ("headache", "cough"), and they are
+stored as a JSON array in one TEXT column. The pre-FTS predicate was six `instr(lower(column), ?)` tests
+plus a doctor subquery, so every query was a full scan whose cost grew with the number of records.
+Phase 1 closed with an open question: if symptom search feels slow over years of data, normalise
+symptoms into their own table (migration v2). The answer was to make it fast if volume demanded it.
+
+**Options.** (a) a normalised `record_symptom` table with joins; (b) an FTS5 index over the searchable
+columns, external-content over `record`; (c) keep `instr` and add indexes; (d) FTS5 with the default
+`unicode61` tokenizer.
+
+**Decision.** (b), with `tokenize='trigram'`, added as migration v2:
+
+- `record_fts` is an external-content FTS5 table over `title, condition, symptoms, facility,
+prescription_text, comments`, keyed by `record.rowid`. Migration v2 backfills it, and `AFTER
+INSERT/DELETE/UPDATE` triggers keep it in step — including rows removed by the person-delete cascade
+  (a test proves the delete trigger fires).
+- Needles of three or more characters become one quoted FTS phrase (`"ache"`), so punctuation and
+  `AND`/`OR`/`*` cannot turn the search box into query syntax. Fewer than three characters fall back to
+  `instr`, because trigram cannot match a shorter string; in that branch symptoms are walked with
+  `json_each` instead of scanning the raw JSON, so searching `"` no longer matches every record that has
+  any symptom.
+- A doctor's name is matched through a subquery over `doctor`, not copied into the index: the table is
+  tiny, and renaming a doctor must not require re-indexing every record.
+- The FTS branch is written as `record.rowid IN (SELECT rowid FROM record_fts WHERE record_fts MATCH ?)`
+  and the caller's `WHERE` already scopes the person. This shape matters: joining `record` inside the
+  subquery let SQLite drive from the person index and probe the FTS table once per row — **440 ms** for
+  a rare term over 10,000 records on the benchmark data, against **0.33 ms** in the shape above.
+- `rebuildSearchIndex(db)` runs FTS5's `rebuild` command. It exists because the index is keyed by
+  `rowid`: `VACUUM` may renumber rowids and silently desynchronise it. **The app must never run
+  `VACUUM`.** Phase 5's backup import must call `rebuildSearchIndex` after a bulk write that bypasses
+  triggers.
+
+**Why trigram.** Symptom search is substring search: a person typing `ache` expects `headache`, and
+`coug` expects `cough`. `unicode61` only matches token prefixes, so it would need a normalised table of
+whole words and would still miss mid-word input. Trigram also makes the JSON array's own punctuation
+harmless for 3+ character queries, because a phrase like `"***"` matches no word trigrams.
+
+**Benchmark** (`npm run bench:search`; Apple M4 Pro, macOS, Node 24.14.0, SQLite 3.51.2, 20,000 synthetic
+records — 10,000 per person — 15.3 MiB, 21 timed runs after 3 warm-ups):
+
+| scenario                        | instr median | instr p95 | FTS median | FTS p95 | FTS speed-up |
+| ------------------------------- | -----------: | --------: | ---------: | ------: | -----------: |
+| common `ache` · page (LIMIT 25) |      0.12 ms |   0.13 ms |    1.04 ms | 1.16 ms |         0.1× |
+| rare `sarcoidosis` · page       |      8.01 ms |   8.53 ms |    0.33 ms | 0.42 ms |          24× |
+| common `ache` · count           |      5.95 ms |   6.78 ms |    1.74 ms | 1.81 ms |         3.4× |
+| rare `sarcoidosis` · count      |      7.63 ms |   7.95 ms |    0.27 ms | 0.30 ms |          28× |
+
+Both sides return the same rows. The common page case is the one where the old scan wins: the
+`(person_id, date)` index delivers rows in display order, so an `instr` scan can stop after 25 matches.
+FTS has to collect every match in the index and sort it before applying the limit, so it pays ~1 ms for
+4,262 matches. Even there the absolute cost is negligible; the cases that scale badly for `instr` —
+rare terms and **counts**, which cannot stop early — are 3–28× faster, and FTS cost depends on the
+number of matches rather than the size of the table. That is the property that matters as the family's
+history grows, and the header count (ADR-024) runs on every filter change.
+
+**Answers to the open question.** Yes: symptom search is now indexed with FTS5. No normalised symptom
+table is needed for Phase 1; if a future feature needs per-symptom aggregation (for example "how often
+did this symptom recur"), a table is still the right shape for that query, and the version-matrix test
+already supports adding migration v3.
+
+**Consequences.**
+
+- The index costs disk and write time: every insert/update writes six columns into `record_fts` through
+  a trigger. Records are written at human speed, so this is not measurable in practice.
+- Trigram needs SQLite 3.34+; `expo-sqlite` in SDK 58 bundles 3.53.3 with FTS5 compiled in on both
+  platforms, and the Node test harness (3.51.2) runs the same SQL.
+- The index is derived data. Anything that bulk-rewrites `record` without firing triggers must call
+  `rebuildSearchIndex()`; anything that renumbers rowids (i.e. `VACUUM`) is forbidden.
+- The index contains the raw symptom JSON; the `<3`-character fallback no longer does. A 3+ character
+  query for JSON punctuation is a curiosity, not a supported search, and returns nothing.
+- Search is person-scoped in SQL, not in the index, so one family member's records can never appear in
+  another's results (tested).
+
+---
+
+## ADR-024 The Records timeline pages 25 rows at a time; counts are a separate query
+
+**Context.** Phase 1 closed with an open question: should the Records timeline be a virtualised list with
+pagination, or is a capped history acceptable for this family's volume? Reviewing the app made the
+answer explicit — there may be a lot of records over time, so paginating is the better choice. The
+timeline also needs a truthful header ("42 records"), not the number of rows currently loaded.
+
+**Options.** (a) `FlatList` over a capped in-memory list (the Phase 1 behaviour: 500, then 50); (b) keyset
+pagination on `(date, created_at, id)`; (c) offset pagination with `limit + 1`; (d) a virtualised list
+that loads everything in one query.
+
+**Decision.** (c), implemented in `recordRepository.listPage(personId, filter, limit, offset)`:
+
+- The query fetches `limit + 1` rows and returns `{ items, hasMore }`. One extra row answers "is there a
+  next page?" without a second `COUNT` on every scroll.
+- `RecordsScreen` uses `useInfiniteQuery` with `PAGE_SIZE = 25`, `initialPageParam: 0`, and
+  `onEndReached` (threshold 0.5), so a 60-row history is three requests and the UI never holds more rows
+  than the user has scrolled through.
+- `buildTimeline(rows)` flattens every loaded page into month headers plus records. A month that straddles
+  a page boundary produces one header, not two.
+- `listSummaries` keeps a safety cap of `DEFAULT_PAGE_LIMIT = 50` for callers that genuinely want a short
+  list (Home's four recent records, tests).
+- The header total comes from `count(personId, filter?)`, which shares `filterConditions` with the list —
+  the same date range, kinds, FTS-aware search and person scope. The screen keeps the previous number
+  while the next one loads instead of flickering.
+- Offset, not keyset: a page is 25 rows, ordering is stable (`date DESC, created_at DESC, id DESC`), and
+  this is a single-user offline app. Keyset would need a composite cursor and would complicate the
+  filter/skip logic for a gain that only matters if rows are inserted while the user pages. New records
+  appear at the top on the next refresh, which is what a person expects after saving.
+
+**Answers to the open question.** Yes: pagination is implemented now, in Phase 1. **Phase 8 no longer
+needs it**; its release work is the table view, accessibility and error/empty states.
+
+**Consequences.**
+
+- `count()` runs on every filter change (including each settled search keystroke, after the 250 ms
+  debounce in ADR-027). The benchmark in ADR-023 measures it: 1.74 ms FTS for a common term over 20,000
+  records, versus 5.95 ms for the old scan.
+- The count is a separate request from the page, so a slow count cannot block the first rows; the header
+  may show the previous total for a moment after a filter change.
+- Adding a filter means adding it to `filterConditions` only, and both the list and the count stay
+  consistent. A test creates 30 matches, loads 25, and asserts the total is 30.
+- Maestro's `1 record` / `0 records` assertions remain valid because the header string is unchanged.
+- Any future export (Phase 4) must page through the repository rather than call `listSummaries()` with no
+  limit; the 50-row cap is deliberate.
+
+---
+
+## ADR-025 `AppChoiceGrid` replaces Paper's `Chip` for exclusive choices
+
+**Context.** Paper's `Chip` sizes itself to its label. Once a screen has six or eight options the pills
+end at ragged, uneven widths and leave most of a row empty — the Phase 1 review described the record
+form's chips as "cluttered, not using the full horizontal space". The review also asked for the same
+treatment on onboarding, Settings, the Records filter sheets and the Profile edit sheet.
+
+**Options.** (a) keep `Chip` with manual widths; (b) style Paper `Chip` through `style` overrides; (c) a
+project-owned grid of equal-width pressable pills in `src/ui`.
+
+**Decision.** (c): `src/ui/components/AppChoiceGrid.tsx`.
+
+- `columns` is 1–4; every cell is `100 / columns` percent wide, so rows line up with the screen gutters
+  and the last row does not stretch.
+- Selection is shown by colour only (filled primary background, `onPrimary` text) — there is no icon
+  font, so no check glyph (ADR-014). `accessibilityState.selected` carries the state for screen readers.
+- It is single- or multi-select without owning the toggle rule: it reports the pressed value and the
+  caller decides (the Records type filter appends/removes, the record form replaces).
+- Pressing an option dismisses the keyboard first. This is both expected behaviour and the reliable way
+  to dismiss it on Android in the Maestro flow.
+- `testIDPrefix` keeps the existing ids (`${prefix}-${value}`), so Maestro selectors did not change.
+- Used by: record form (kind, 3 columns), onboarding (sex 2, units 2, blood type 4), Settings (units 2,
+  BMI preset 2), the Records filter sheets, and the Profile edit sheet (blood type, 4 columns).
+
+**Consequences.**
+
+- Option labels must be short: each label is `numberOfLines={1}` and will ellipsise rather than push the
+  row. Every current label fits ("Female", "Imperial (ft, lb)" at two columns).
+- `AppChip` stays for non-exclusive content and inline actions: the Home person switcher, medication
+  tags, and the Records filter buttons that open a sheet.
+- The grid is pure `ui`; it imports no repository, feature or Paper internals, so a design-system change
+  stays in one file.
+
+---
+
+## ADR-026 Only pinned-footer screens pad the bottom safe area
+
+**Context.** The interim fix made `AppScreen` add `insets.bottom` whenever `scroll={false}`, to stop the
+record form's Save button from sitting under the home indicator. But Records is also `scroll={false}`
+(it is a `FlatList`), and it lives inside the tab navigator, whose bar already clears the home indicator.
+Records therefore gained a double gap at the bottom — the regression in R3.
+
+**Options.** (a) keep the inset for every non-scrolling screen and special-case the tab screens; (b) make
+the inset an explicit opt-in prop; (c) drop the inset and let footers use their own padding.
+
+**Decision.** (b): `AppScreen` has `safeAreaBottom?: boolean`, **default false**. The root pads
+`insets.bottom` only when `safeAreaBottom && !scroll`. Scrollable content keeps its own
+`insets.bottom + spacing.xxl` padding inside the scroll area, where it cannot create a visible gap.
+
+Only two screens opt in today: `RecordFormScreen` and `OnboardingScreen` — both full-screen routes
+outside the tab navigator with a button pinned to the bottom. Records, Home, Profile and Settings do not.
+
+Opt-in screens also wrap their body in a `KeyboardAvoidingView` (`behavior="padding"`), so a pinned
+footer clears the **software keyboard**, not just the home indicator. Device QA found Save completely
+hidden behind the Android keyboard: with edge-to-edge the window no longer resizes, so the footer has
+to be lifted explicitly.
+
+**Consequences.**
+
+- A new full-screen route with a pinned footer must set `safeAreaBottom`; forgetting it puts the footer
+  under the gesture bar, which is visible immediately on QA.
+- A tab screen must never set it. `AppScreen.test.tsx` asserts default 0, the opt-in value at 34 pt, and
+  that the opt-in is ignored while scrolling.
+- The same test asserts the keyboard-avoiding wrapper exists only for opt-in screens, so a future
+  `safeAreaBottom` screen cannot silently lose it.
+- The rule is structural rather than a per-screen height guess, so devices with no home indicator
+  (inset 0) need no special case.
+
+---
+
+## ADR-027 Records filter UX, search debounce, tab label and Profile layout
+
+**Context.** The post-Phase-1 review found four UX problems: the tab labels were small; the Records page
+spent half the screen on filters; the Profile card used only its left half; and the record form's chips
+were cluttered while the fixed Save button was partly cut off. The interim commit addressed most of the
+first three; this ADR records the rules so later screens stay consistent.
+
+**Decision.**
+
+- **Records filters** live in the `FlatList` header, not above it: a search field, two chips that open
+  bottom sheets ("Type: …", "Period: …"), a "Clear filters" chip when anything is active, and a count.
+  Everything scrolls away as soon as the user reads the list, because the list is the point. Filtering is
+  multi-select for kind and single-select for period presets computed on the device's local calendar.
+  The count is the true total from `count()` (ADR-024), not the loaded rows.
+- **Search is debounced by 250 ms** (`useDebouncedValue`) before it becomes a query. Clearing the box
+  applies immediately, so "Clear filters" never feels stuck. The debounce reduces both the page query and
+  the count query to one per pause in typing, and stops paging from resetting on every keystroke.
+- **Tab labels** use `typography.tabLabel` (15/20) instead of a hard-coded size, are `numberOfLines={1}`,
+  and cap OS font scaling at `maxFontSizeMultiplier={1.2}`. Five even slots on a 360 dp phone leave
+  ~72 dp each; without the cap, Android's largest font scale ellipsised "Settings".
+- **Profile** uses `AppFactGrid` from `src/ui`: a two-column grid of fact tiles (label in `caption`/
+  muted above, value in `subtitle` below) for Date of birth | Sex, Blood type | BMI (+ category badge),
+  Height | Weight, with a hairline divider and two full-width rows for Allergies and Chronic conditions.
+  The same grid is used one-column for long text and is the same visual language as the Home snapshot.
+  At OS font scales of 1.5 or more it collapses to one column (`useWindowDimensions().fontScale`),
+  because two columns wrapped a `DD/MM/YYYY` date mid-string on the iOS simulator at accessibility XL.
+  The edit sheet uses `AppChoiceGrid` for blood type (ADR-025).
+
+**Consequences.**
+
+- The filters are reachable only by scrolling to the top of the list; that is the deliberate trade-off
+  for giving the list the screen. The search field is still the first thing at the top of the list.
+- The grid is width-driven (`100 / columns` percent), so a tablet simply gets wider tiles; no breakpoints
+  or device classes are involved, and light/dark themes come from tokens.
+- `AppFactGrid` keys tiles by label, so labels must be unique within one grid. Values stay strings; a
+  badge or other accessory is passed as `accessory`.
+- Capping tab-label scaling is a small accessibility trade-off (labels scale to 120%, not 200%). The
+  alternative — truncating "Settings" — hides the destination entirely, and the tab has an
+  `accessibilityLabel` and `accessibilityRole="tab"` for assistive technology. Verified on the Android
+  emulator at 360 dp and 1.3× font: all four labels stay on one line in five even slots.
+- The Profile test asserts the tile ids, the DD/MM/YYYY date, metric units, the BMI value and the
+  four-column blood-type grid, so a layout regression fails CI even though CI cannot see pixels.
+
+---
+
+## ADR-028 Dialogs pin their own radius, and record rows lead with the title
+
+**Context.** A follow-up review of the running app (iOS and Android) found three visual inconsistencies:
+
+- The Home snapshot's four vitals had no shared column width, so each row of two facts clustered to the
+  left and the card looked half empty.
+- On Home and the Records timeline the record type badge read at least as large as the record title: a
+  13 pt semibold caption on a filled pill next to a 14 pt semibold title.
+- The unsaved-changes dialog had enormous corners, with the title and the destructive action sitting
+  almost against the curve. Paper's Material 3 `Dialog` computes its radius as **7 ×
+  `theme.roundness`**; our theme uses the 12 pt card token as roundness, so the dialog was 84 pt.
+
+**Decision.**
+
+- `SnapshotCard` renders its four vitals through `AppFactGrid` (two columns), the same primitive as the
+  Profile page. Facts share the width evenly, the values use the Profile type scale, and the
+  large-text one-column rule (ADR-027) applies to Home too. The Last BP block stays a full-width block
+  of its own.
+- `AppListRow` gives the title `body` (16/24) semibold; the type badge stays a `caption` (13) semibold
+  pill. The title is the subject of the row and the badge is metadata, so the hierarchy is now explicit.
+- `AppDialog` pins `borderRadius: radius.card` (12) on the dialog surface, overriding Paper's 7×
+  multiple. Theme roundness stays at the card radius because other Paper surfaces depend on it.
+
+**Consequences.**
+
+- Home and Profile share one fact-grid primitive; a layout change lands in one file.
+- List rows are a little taller because the title uses the 24 pt body line height. The accessible
+  label and the Maestro text assertions are unchanged.
+- Any future Paper component that multiplies `theme.roundness` can produce an unexpected radius. Check
+  the rendered value and pin the token explicitly, as `AppDialog` does.
+- Tests guard the two regressions: `SnapshotCard.test.tsx` asserts four 50% cells at normal text size,
+  and `AppListRow.test.tsx` asserts a 16 pt semibold title beside a 13 pt badge. The dialog radius is
+  verified on the simulator and emulator (a Paper-internal style is not reachable from a unit test
+  without asserting implementation details).
+
+---
+
+## ADR-029 Every text field opts out of system AutoFill
+
+**Context.** On the iOS 26 simulator with a hardware keyboard, focusing a record field and typing one
+character brought up the system "AutoFill" prompt over the form and took the keyboard away, blocking
+further input. Two problems at once: the fields were eligible for the system's form filling, and
+nothing typed into a medical record should ever be offered to iCloud Keychain, Contacts or a password
+manager. The app itself was not dropping keystrokes — automation typed consecutive characters, paused
+past the 400 ms draft save, switched fields, saved and read the values back.
+
+**Options.** (a) leave `textContentType` unset (the default) and treat the prompt as environment noise;
+(b) opt every field out explicitly; (c) also hide the edit menu (`contextMenuHidden`) and the QuickType
+bar (`autoCorrect={false}`) to remove every system surface.
+
+**Decision.** (b), in `AppField`, so every input in the app inherits it (`AppField` backs the record
+form, onboarding, Profile, Settings, medications, readings and vitals; `AppTagInput` wraps `AppField`):
+
+- `textContentType="none"` — React Native maps this to an empty `UITextContentType`, the documented way
+  to tell iOS that a field has no AutoFill semantics.
+- `autoComplete="off"` — the same intent, and the value RN maps to `none` on iOS.
+- `importantForAutofill="no"` — the Android opt-out, so no autofill service offers content here.
+
+Option (c) was rejected: hiding the context menu would remove copy/paste from prescription and comment
+fields, and disabling autocorrect changes text entry everywhere. If a system prompt still appears, the
+next step is a targeted accessory-view change, not a global one.
+
+**Consequences.**
+
+- No system AutoFill prompt or credential offer on any medical field, and medical text never enters the
+  keychain or contacts autofill stores. That also matches the app's no-network, on-device model.
+- Copy/paste, selection and autocorrect behave as before.
+- `AppField.test.tsx` asserts the three props, so a refactor cannot silently restore the default.
+- The overlay is system UI. The headless simulator here has no Simulator.app, so the prompt could not be
+  re-triggered with real hardware keystrokes; with the software keyboard and automation, entry across
+  fields, a pause past the draft save, save and read-back all pass. If it still appears, dismissing it
+  or turning off "Connect Hardware Keyboard" restores the on-screen keyboard and typing.

@@ -59,7 +59,10 @@ describe('schema drift', () => {
   it('covers every table the migration creates, and no others', () => {
     const db = createTestDatabase();
     const created = db.raw
-      .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'")
+      .prepare(
+        `SELECT name FROM sqlite_master
+         WHERE type = 'table' AND name NOT LIKE 'sqlite_%' AND name NOT LIKE 'record_fts%'`,
+      )
       .all()
       .map((row) => String(row.name))
       .sort();

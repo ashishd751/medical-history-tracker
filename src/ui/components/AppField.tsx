@@ -57,6 +57,13 @@ export function AppField({
       testID={testID}
       onSubmitEditing={onSubmitEditing}
       returnKeyType={returnKeyType}
+      // Medical text is not a login or contact form. Opt every field out of system AutoFill:
+      // iOS otherwise shows its floating "AutoFill" prompt over a plain text field (which can
+      // take the keyboard away mid-entry), and nothing typed here should be offered to the
+      // keychain or contacts. Android gets the matching `importantForAutofill` opt-out.
+      autoComplete="off"
+      textContentType="none"
+      importantForAutofill="no"
       outlineStyle={{ borderRadius: radius.input }}
       outlineColor={colors.border}
       activeOutlineColor={colors.primary}

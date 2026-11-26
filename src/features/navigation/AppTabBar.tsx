@@ -83,8 +83,13 @@ export function AppTabBar({ state, navigateToTab, onAddPress }: AppTabBarProps) 
               style={styles.tab}
             >
               <AppText
-                variant="caption"
+                variant="tabLabel"
                 color={focused ? 'primary' : 'muted'}
+                numberOfLines={1}
+                // Five even slots on a 360 dp phone leave ~72 dp each. Capping OS scaling keeps the
+                // longest label ("Settings") on one line; without it Android's largest font scale
+                // ellipsised it (R5).
+                maxFontSizeMultiplier={1.2}
                 style={{ fontWeight: focused ? '700' : '400' }}
               >
                 {label}

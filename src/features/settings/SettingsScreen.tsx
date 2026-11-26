@@ -1,10 +1,9 @@
 import Constants from 'expo-constants';
-import { StyleSheet, View } from 'react-native';
 
 import { requireRepositories } from '@/data';
 import { BMI_PRESETS, type BmiPreset, UNIT_SYSTEMS, type UnitSystem } from '@/domain';
 import { useSession } from '@/lib/session';
-import { AppCard, AppChip, AppScreen, AppSectionHeader, AppText, spacing, strings } from '@/ui';
+import { AppCard, AppChoiceGrid, AppScreen, AppSectionHeader, AppText, strings } from '@/ui';
 
 const UNIT_LABELS: Record<UnitSystem, string> = {
   metric: strings.settings.unitsMetric,
@@ -15,6 +14,9 @@ const PRESET_LABELS: Record<BmiPreset, string> = {
   asian: strings.settings.bmiAsian,
   who: strings.settings.bmiWho,
 };
+
+const UNIT_OPTIONS = UNIT_SYSTEMS.map((value) => ({ value, label: UNIT_LABELS[value] }));
+const PRESET_OPTIONS = BMI_PRESETS.map((value) => ({ value, label: PRESET_LABELS[value] }));
 
 /** Units, BMI reference and the privacy statement. */
 export function SettingsScreen() {
@@ -28,30 +30,22 @@ export function SettingsScreen() {
   return (
     <AppScreen title={strings.settings.title} testID="screen-settings">
       <AppSectionHeader title={strings.settings.units} />
-      <View style={styles.chips}>
-        {UNIT_SYSTEMS.map((option) => (
-          <AppChip
-            key={option}
-            label={UNIT_LABELS[option]}
-            selected={unitSystem === option}
-            onPress={() => save({ unitSystem: option })}
-            testID={`units-${option}`}
-          />
-        ))}
-      </View>
+      <AppChoiceGrid
+        options={UNIT_OPTIONS}
+        selected={unitSystem}
+        onSelect={(value) => save({ unitSystem: value })}
+        columns={2}
+        testIDPrefix="units"
+      />
 
       <AppSectionHeader title={strings.settings.bmiPreset} />
-      <View style={styles.chips}>
-        {BMI_PRESETS.map((option) => (
-          <AppChip
-            key={option}
-            label={PRESET_LABELS[option]}
-            selected={bmiPreset === option}
-            onPress={() => save({ bmiPreset: option })}
-            testID={`bmi-preset-${option}`}
-          />
-        ))}
-      </View>
+      <AppChoiceGrid
+        options={PRESET_OPTIONS}
+        selected={bmiPreset}
+        onSelect={(value) => save({ bmiPreset: value })}
+        columns={2}
+        testIDPrefix="bmi-preset"
+      />
       <AppText variant="caption" color="muted">
         {strings.settings.bmiHint}
       </AppText>
@@ -73,7 +67,3 @@ export function SettingsScreen() {
     </AppScreen>
   );
 }
-
-const styles = StyleSheet.create({
-  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs },
-});

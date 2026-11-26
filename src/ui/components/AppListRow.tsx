@@ -47,7 +47,7 @@ export function AppListRow({
     >
       <View style={styles.main}>
         {badge ? <View>{badge}</View> : null}
-        <AppText variant="label" numberOfLines={2}>
+        <AppText variant="body" style={styles.title} numberOfLines={2}>
           {title}
         </AppText>
         {subtitle ? (
@@ -82,5 +82,8 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
   },
   main: { flex: 1, gap: 2 },
+  // The type badge is a 13 pt caption; the title carries the row at 16 pt semibold, so the type can
+  // never look larger than the record it describes.
+  title: { fontWeight: '600' },
   side: { alignItems: 'flex-end', gap: 2 },
 });

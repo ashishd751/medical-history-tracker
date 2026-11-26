@@ -51,6 +51,9 @@ Run `npm run deps:check` after adding imports.
 - Named exports everywhere; route files are the only default exports (framework requirement).
 - User-facing strings live in `src/ui/strings.ts`.
 - All database access goes through repositories; every write is transactional.
+- **Never run `VACUUM`.** `record_fts` is keyed by `record.rowid`, and a renumbering would silently
+  desynchronise the search index. After a bulk write that bypasses triggers (Phase 5 backup import),
+  call `rebuildSearchIndex(db)` from `src/data` (ADR-023).
 - All file I/O goes through `src/data/fileStore.ts` and returns `Result`.
 - Store **relative** attachment paths in SQLite, never absolute URIs.
 - Dates without time are `YYYY-MM-DD` strings in storage; never round-trip them through UTC. Render

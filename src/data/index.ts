@@ -6,6 +6,7 @@ export {
   type AppRepositories,
   type AppSettings,
   createRepositories,
+  DEFAULT_PAGE_LIMIT,
   type DoctorRepository,
   getRepositories,
   type MeasurementRepository,
@@ -16,6 +17,7 @@ export {
   type RecordDetail,
   type RecordFilter,
   type RecordFormInput,
+  type RecordPage,
   type RecordRepository,
   type RecordSummary,
   type RecordView,
@@ -33,6 +35,7 @@ export type {
   RecordRow,
   TestResultRow,
 } from './schema';
+export { rebuildSearchIndex } from './searchIndex';
 
 /**
  * The repositories, or a thrown error.

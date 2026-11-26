@@ -12,6 +12,8 @@ import { formatDisplayDate } from '@/lib/dates';
 import {
   AppBadge,
   AppCard,
+  type AppFact,
+  AppFactGrid,
   AppText,
   bloodTypeLabel,
   bmiCategoryLabel,
@@ -53,42 +55,46 @@ export function SnapshotCard({
   const { colors } = useAppTheme();
   const bmi = heightCm !== null && weightKg !== null ? computeBmi(heightCm, weightKg) : null;
 
+  // Equal-width tiles: four facts in two columns use the whole card width instead of clustering
+  // on the left. AppFactGrid is the same primitive the Profile page uses (ADR-027).
+  const facts: AppFact[] = [
+    {
+      label: strings.home.height,
+      value: heightCm === null ? '—' : formatHeight(heightCm, unitSystem),
+      testID: 'snapshot-height',
+    },
+    {
+      label: strings.home.weight,
+      value: weightKg === null ? '—' : formatWeight(weightKg, unitSystem),
+      testID: 'snapshot-weight',
+    },
+    {
+      label: strings.home.bmi,
+      value: bmi === null ? '—' : formatBmi(bmi),
+      accessory:
+        bmi === null ? undefined : (
+          <AppBadge
+            label={bmiCategoryLabel(bmiCategory(bmi, bmiPreset))}
+            tone="info"
+            testID="bmi-category"
+          />
+        ),
+      testID: 'bmi-value',
+    },
+    {
+      label: strings.home.bloodType,
+      value: bloodTypeLabel(bloodType),
+      testID: 'snapshot-blood-type',
+    },
+  ];
+
   return (
     <AppCard testID={testID} accessibilityLabel={strings.home.snapshot}>
       <AppText variant="subtitle" accessibilityRole="header">
         {strings.home.snapshot}
       </AppText>
 
-      <View style={styles.grid}>
-        <Metric
-          label={strings.home.height}
-          value={heightCm === null ? '—' : formatHeight(heightCm, unitSystem)}
-        />
-        <Metric
-          label={strings.home.weight}
-          value={weightKg === null ? '—' : formatWeight(weightKg, unitSystem)}
-        />
-        <View style={styles.metric}>
-          <AppText variant="caption" color="muted">
-            {strings.home.bmi}
-          </AppText>
-          {bmi === null ? (
-            <AppText variant="label">—</AppText>
-          ) : (
-            <View style={styles.bmiRow}>
-              <AppText variant="label" testID="bmi-value">
-                {formatBmi(bmi)}
-              </AppText>
-              <AppBadge
-                label={bmiCategoryLabel(bmiCategory(bmi, bmiPreset))}
-                tone="info"
-                testID="bmi-category"
-              />
-            </View>
-          )}
-        </View>
-        <Metric label={strings.home.bloodType} value={bloodTypeLabel(bloodType)} />
-      </View>
+      <AppFactGrid facts={facts} columns={2} />
 
       <View style={[styles.bp, { borderTopColor: colors.border }]}>
         <View style={styles.metric}>
@@ -120,21 +126,8 @@ export function SnapshotCard({
   );
 }
 
-function Metric({ label, value }: { label: string; value: string }) {
-  return (
-    <View style={styles.metric}>
-      <AppText variant="caption" color="muted">
-        {label}
-      </AppText>
-      <AppText variant="label">{value}</AppText>
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
-  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.lg },
-  metric: { gap: 2, minWidth: 96 },
-  bmiRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
+  metric: { gap: 2 },
   bp: { borderTopWidth: StyleSheet.hairlineWidth, paddingTop: spacing.md, gap: spacing.xs },
   disclaimer: { marginTop: spacing.xs },
 });

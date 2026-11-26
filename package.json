@@ -13,6 +13,7 @@
     "format:check": "prettier --check .",
     "test": "jest",
     "test:watch": "jest --watch",
+    "bench:search": "node --disable-warning=ExperimentalWarning scripts/bench-search.mjs",
     "doctor": "npx expo-doctor",
     "deps:check": "depcruise src app --config .dependency-cruiser.cjs",
     "prepare": "husky"

@@ -6,6 +6,7 @@
  * SQLite harness without touching a native module (ADR-019).
  */
 import type { AppDatabase } from '../db';
+import { type AttachmentRepository, createAttachmentRepository } from './attachmentRepository';
 import { defaultRepositoryDeps, type RepositoryDeps } from './deps';
 import { createDoctorRepository, type DoctorRepository } from './doctorRepository';
 import { createMeasurementRepository, type MeasurementRepository } from './measurementRepository';
@@ -18,6 +19,7 @@ import { createTestResultRepository, type TestResultRepository } from './testRes
 export interface AppRepositories {
   readonly people: PersonRepository;
   readonly records: RecordRepository;
+  readonly attachments: AttachmentRepository;
   readonly medications: MedicationRepository;
   readonly readings: TestResultRepository;
   readonly measurements: MeasurementRepository;
@@ -32,6 +34,7 @@ export function createRepositories(
   return {
     people: createPersonRepository(db, deps),
     records: createRecordRepository(db, deps),
+    attachments: createAttachmentRepository(db, deps.now),
     medications: createMedicationRepository(db, deps),
     readings: createTestResultRepository(db),
     measurements: createMeasurementRepository(db, deps),

@@ -1,10 +1,22 @@
 import { type AppRepositories, getRepositories } from './repositories';
 
 export { type AppDatabase, DATABASE_NAME, getAppDatabase, resetAppDatabase } from './db';
+export {
+  createExpoFileSystemPort,
+  createFileStore,
+  type FileEntry,
+  type FileStore,
+  type FileSystemPort,
+  getFileStore,
+  type ImportedFile,
+} from './fileStore';
 export { LATEST_SCHEMA_VERSION } from './migrations';
 export {
   type AppRepositories,
   type AppSettings,
+  type AttachmentInput,
+  attachmentPathsOf,
+  type AttachmentRepository,
   createRepositories,
   DEFAULT_PAGE_LIMIT,
   type DoctorRepository,
@@ -18,6 +30,7 @@ export {
   type RecordFilter,
   type RecordFormInput,
   type RecordPage,
+  type RecordRemoval,
   type RecordRepository,
   type RecordSummary,
   type RecordView,

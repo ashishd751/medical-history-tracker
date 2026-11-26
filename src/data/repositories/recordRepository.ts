@@ -19,6 +19,8 @@ import { logger } from '../../lib/logger';
 import { err, ok, type Result } from '../../lib/result';
 import type { AppDatabase } from '../db';
 import {
+  attachment,
+  type AttachmentRow,
   measurement,
   type MeasurementRow,
   medication,
@@ -28,6 +30,7 @@ import {
   testResult,
   type TestResultRow,
 } from '../schema';
+import { type AttachmentInput, attachmentPathsOf, insertAttachments } from './attachmentRepository';
 import { defaultRepositoryDeps, type RepositoryDeps } from './deps';
 
 export interface MedicationInput {
@@ -60,6 +63,14 @@ export interface VitalInput {
 }
 
 export interface RecordFormInput {
+  /**
+   * Optional record id.
+   *
+   * The form supplies one for a new record because attachment paths contain the record id, so the
+   * files are already in place before the rows are written (ADR-030). Without it the repository
+   * generates an id as before.
+   */
+  readonly id?: string;
   /** `YYYY-MM-DD`. */
   readonly date: string;
   readonly kind: RecordKind;
@@ -75,6 +86,10 @@ export interface RecordFormInput {
   readonly medications?: readonly MedicationInput[];
   readonly readings?: readonly ReadingInput[];
   readonly vitals?: readonly VitalInput[];
+  /** Attachment rows to write in the same transaction, files already moved into place. */
+  readonly attachments?: readonly AttachmentInput[];
+  /** Attachment rows to delete in the same transaction (edit only). */
+  readonly removedAttachmentIds?: readonly string[];
 }
 
 export type RecordView = Omit<RecordRow, 'symptoms'> & { readonly symptoms: readonly string[] };
@@ -95,6 +110,13 @@ export interface RecordDetail {
   readonly medications: readonly MedicationRow[];
   readonly readings: readonly TestResultRow[];
   readonly measurements: readonly MeasurementRow[];
+  readonly attachments: readonly AttachmentRow[];
+}
+
+/** What deleting a record leaves for the caller to clean up on disk (ADR-030). */
+export interface RecordRemoval {
+  /** Relative paths of the deleted attachments' files and thumbnails. */
+  readonly attachmentPaths: readonly string[];
 }
 
 export interface RecordFilter {
@@ -123,8 +145,8 @@ export interface RecordRepository {
   recent(personId: string, limit?: number): RecordSummary[];
   /** Total matches for the filters, using the same predicate as the list (ADR-024). */
   count(personId: string, filter?: RecordFilter): number;
-  /** Cascades to medications, readings, attachments and the record's measurements. */
-  remove(personId: string, recordId: string): Result<true, AppError>;
+  /** Cascades to medications, readings and attachments; returns the files to delete. */
+  remove(personId: string, recordId: string): Result<RecordRemoval, AppError>;
 }
 
 /** Symptoms are a JSON array in storage; a damaged value must not break a whole list read. */
@@ -326,7 +348,7 @@ export function createRecordRepository(
   return {
     create(personId, input) {
       const now = deps.now();
-      const id = deps.newId();
+      const id = input.id ?? deps.newId();
       try {
         db.transaction((tx) => {
           tx.insert(record)
@@ -348,6 +370,7 @@ export function createRecordRepository(
             })
             .run();
           insertChildren(tx, personId, id, input, now);
+          insertAttachments(tx, id, input.attachments ?? [], now);
         });
         return ok(id);
       } catch (error) {
@@ -385,6 +408,16 @@ export function createRecordRepository(
           tx.delete(testResult).where(eq(testResult.recordId, recordId)).run();
           tx.delete(measurement).where(eq(measurement.recordId, recordId)).run();
           insertChildren(tx, personId, recordId, input, now);
+
+          // Attachments are additive: existing rows keep their ids (and therefore their files),
+          // removed ones are deleted here, new ones are inserted.
+          const removed = [...(input.removedAttachmentIds ?? [])];
+          if (removed.length > 0) {
+            tx.delete(attachment)
+              .where(and(eq(attachment.recordId, recordId), inArray(attachment.id, removed)))
+              .run();
+          }
+          insertAttachments(tx, recordId, input.attachments ?? [], now);
         });
         return ok(true);
       } catch (error) {
@@ -415,6 +448,12 @@ export function createRecordRepository(
           .where(eq(measurement.recordId, recordId))
           .orderBy(asc(measurement.kind), asc(measurement.id))
           .all(),
+        attachments: db
+          .select()
+          .from(attachment)
+          .where(eq(attachment.recordId, recordId))
+          .orderBy(asc(attachment.createdAt), asc(attachment.id))
+          .all(),
       };
     },
 
@@ -442,12 +481,21 @@ export function createRecordRepository(
         return err(appError('DB_FAILURE', `No record ${recordId} for this person.`));
       }
       try {
+        let attachmentPaths: string[] = [];
         db.transaction((tx) => {
+          // Read the paths before the cascade removes the rows: the files outlive the transaction
+          // and only the caller can delete them.
+          const rows = tx
+            .select({ relPath: attachment.relPath, thumbRelPath: attachment.thumbRelPath })
+            .from(attachment)
+            .where(eq(attachment.recordId, recordId))
+            .all();
+          attachmentPaths = rows.flatMap(attachmentPathsOf);
           tx.delete(record)
             .where(and(eq(record.id, recordId), eq(record.personId, personId)))
             .run();
         });
-        return ok(true);
+        return ok({ attachmentPaths });
       } catch (error) {
         return err(appError('DB_FAILURE', 'Could not delete the record.', error));
       }

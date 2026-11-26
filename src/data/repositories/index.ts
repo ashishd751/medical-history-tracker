@@ -19,6 +19,11 @@ export function getRepositories(): Result<AppRepositories, AppError> {
   return ok(cached.repositories);
 }
 
+export {
+  type AttachmentInput,
+  attachmentPathsOf,
+  type AttachmentRepository,
+} from './attachmentRepository';
 export { type AppRepositories, createRepositories } from './createRepositories';
 export { defaultRepositoryDeps, type RepositoryDeps } from './deps';
 export { type DoctorInput, type DoctorRepository } from './doctorRepository';
@@ -34,6 +39,7 @@ export {
   type RecordFilter,
   type RecordFormInput,
   type RecordPage,
+  type RecordRemoval,
   type RecordRepository,
   type RecordSummary,
   type RecordView,

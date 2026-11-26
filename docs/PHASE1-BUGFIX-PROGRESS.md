@@ -35,7 +35,9 @@ Baseline at `a9a4c46`: typecheck, lint, dependency rules (106 modules) and Prett
       8.01 ms vs 0.33 ms (24×); common count 5.95 ms vs 1.74 ms (3.4×); rare count 7.63 ms vs
       0.27 ms (28×). The benchmark exposed a bad plan in the original FTS query shape (440 ms,
       probing the index per row); the repository now uses `record.rowid IN (SELECT rowid …)`.
-- [ ] **T8. Debounce (R8).** Only if trivial; otherwise recorded as not done.
+- [x] **T8. Debounce (R8).** `useDebouncedValue` (250 ms) now gates the search queries in the
+      Records screen; an empty box applies immediately so Clear filters stays snappy. Two hook tests
+      cover the delay and the restart. Maestro never types into search, so the flow is unaffected.
 - [ ] **T9. Documentation (R2).** ADR-023 to ADR-027, `PHASES.md`, `README.md`,
       `ARCHITECTURE.md`, `AGENTS.md`, test counts.
 - [ ] **T10. Final gate and report.** Full gate output plus the manual device QA checklist.

@@ -7,6 +7,7 @@ import { requireRepositories } from '@/data';
 import { RECORD_KINDS, type RecordKind } from '@/domain';
 import { formatDisplayDate, todayIso, toIsoDate } from '@/lib/dates';
 import { useSession } from '@/lib/session';
+import { useDebouncedValue } from '@/lib/useDebouncedValue';
 import {
   AppBadge,
   AppButton,
@@ -71,14 +72,19 @@ export function RecordsScreen() {
   const [sheet, setSheet] = useState<'closed' | 'type' | 'period'>('closed');
   const id = personId ?? '';
 
+  // Typing waits 250 ms before it becomes a query; clearing the box applies immediately so the
+  // Clear filters button never feels stuck.
+  const debouncedSearch = useDebouncedValue(search, 250);
+  const effectiveSearch = search.trim() === '' ? '' : debouncedSearch;
+
   const bounds = useMemo(() => rangeBounds(period), [period]);
 
   const records = useInfiniteQuery({
-    queryKey: ['records', id, 'pages', search, kinds, period],
+    queryKey: ['records', id, 'pages', effectiveSearch, kinds, period],
     queryFn: ({ pageParam }) =>
       requireRepositories().records.listPage(
         id,
-        { search, kinds, ...bounds },
+        { search: effectiveSearch, kinds, ...bounds },
         PAGE_SIZE,
         pageParam,
       ),
@@ -97,8 +103,9 @@ export function RecordsScreen() {
   // The header reports every match, not just the rows loaded so far: a "25 records" label on a
   // 200-record result would be a lie (ADR-024). The query reuses the list's own predicate.
   const total = useQuery({
-    queryKey: ['records', id, 'count', search, kinds, period],
-    queryFn: () => requireRepositories().records.count(id, { search, kinds, ...bounds }),
+    queryKey: ['records', id, 'count', effectiveSearch, kinds, period],
+    queryFn: () =>
+      requireRepositories().records.count(id, { search: effectiveSearch, kinds, ...bounds }),
     // Keep the previous number on screen while the next one loads, instead of flickering.
     placeholderData: (previous) => previous,
     enabled: id !== '',

@@ -1,6 +1,7 @@
 import { Dialog, Portal } from 'react-native-paper';
 
 import { useAppTheme } from '../ThemeProvider';
+import { radius } from '../tokens';
 import { AppButton } from './AppButton';
 import { AppText } from './AppText';
 
@@ -41,7 +42,10 @@ export function AppDialog({
         visible={visible}
         onDismiss={onCancel}
         testID={testID}
-        style={{ backgroundColor: colors.surface }}
+        // Paper sets a Material 3 dialog's radius to 7 × theme.roundness. Our roundness token is the
+        // 12 pt card radius, so the default would balloon to 84 pt and the title/actions would sit
+        // against the curve. Pin the dialog to the card radius instead.
+        style={{ backgroundColor: colors.surface, borderRadius: radius.card }}
       >
         <Dialog.Title>
           <AppText variant="subtitle" accessibilityRole="header">

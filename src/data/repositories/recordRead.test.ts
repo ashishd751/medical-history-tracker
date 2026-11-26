@@ -152,6 +152,73 @@ describe('recordRepository reads', () => {
     fixture.close();
   });
 
+  describe('recordRepository pagination', () => {
+    it('walks every record once, with no gap or repeat', () => {
+      const fixture = createRepositoryFixture();
+      const dates = [
+        '2026-01-01',
+        '2026-02-01',
+        '2026-03-01',
+        '2026-04-01',
+        '2026-05-01',
+        '2026-06-01',
+        '2026-07-01',
+      ];
+      dates.forEach((date, index) => {
+        fixture.repos.records.create(
+          fixture.personId,
+          recordInput({ date, title: `Record ${index}` }),
+        );
+      });
+
+      const first = fixture.repos.records.listPage(fixture.personId, {}, 3, 0);
+      const second = fixture.repos.records.listPage(fixture.personId, {}, 3, 3);
+      const third = fixture.repos.records.listPage(fixture.personId, {}, 3, 6);
+
+      expect([first.items.length, second.items.length, third.items.length]).toEqual([3, 3, 1]);
+      expect([first.hasMore, second.hasMore, third.hasMore]).toEqual([true, true, false]);
+
+      const ids = [...first.items, ...second.items, ...third.items].map((row) => row.id);
+      expect(new Set(ids).size).toBe(7);
+      expect(ids[0]).toBe(first.items[0]?.id);
+      fixture.close();
+    });
+
+    it('keeps a search applied across pages', () => {
+      const fixture = createRepositoryFixture();
+      for (const [index, date] of [
+        '2026-01-01',
+        '2026-02-01',
+        '2026-03-01',
+        '2026-04-01',
+      ].entries()) {
+        fixture.repos.records.create(
+          fixture.personId,
+          recordInput({ date, title: `Synthetic cough ${index}`, symptoms: ['cough'] }),
+        );
+      }
+      fixture.repos.records.create(
+        fixture.personId,
+        recordInput({ date: '2026-05-01', title: 'Migraine' }),
+      );
+
+      const first = fixture.repos.records.listPage(fixture.personId, { search: 'cough' }, 3, 0);
+      const second = fixture.repos.records.listPage(fixture.personId, { search: 'cough' }, 3, 3);
+
+      expect(first.items).toHaveLength(3);
+      expect(first.hasMore).toBe(true);
+      expect(second.items).toHaveLength(1);
+      expect(second.hasMore).toBe(false);
+      expect(first.items.map((row) => row.title)).toEqual([
+        'Synthetic cough 3',
+        'Synthetic cough 2',
+        'Synthetic cough 1',
+      ]);
+      expect(second.items[0]?.title).toBe('Synthetic cough 0');
+      fixture.close();
+    });
+  });
+
   it('counts lab readings through the person boundary', () => {
     const fixture = createRepositoryFixture();
     const otherPerson = fixture.addPerson('Synthetic Relative');

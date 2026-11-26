@@ -26,12 +26,14 @@ export { type MeasurementInput, type MeasurementRepository } from './measurement
 export { type MedicationPatch, type MedicationRepository } from './medicationRepository';
 export { type NewPersonInput, type PersonPatch, type PersonRepository } from './personRepository';
 export {
+  DEFAULT_PAGE_LIMIT,
   type MedicationInput,
   parseSymptoms,
   type ReadingInput,
   type RecordDetail,
   type RecordFilter,
   type RecordFormInput,
+  type RecordPage,
   type RecordRepository,
   type RecordSummary,
   type RecordView,

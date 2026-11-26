@@ -3,6 +3,7 @@ export { AppBanner, type AppBannerProps, type BannerTone } from './AppBanner';
 export { AppButton, type AppButtonProps, type AppButtonVariant } from './AppButton';
 export { AppCard, type AppCardProps } from './AppCard';
 export { AppChip, type AppChipProps } from './AppChip';
+export { AppChoiceGrid, type AppChoiceGridProps, type ChoiceOption } from './AppChoiceGrid';
 export { AppDateField, type AppDateFieldProps } from './AppDateField';
 export { AppDialog, type AppDialogProps } from './AppDialog';
 export { AppEmptyState, type AppEmptyStateProps } from './AppEmptyState';

@@ -83,9 +83,9 @@ export function AppTabBar({ state, navigateToTab, onAddPress }: AppTabBarProps) 
               style={styles.tab}
             >
               <AppText
-                variant="caption"
+                variant="label"
                 color={focused ? 'primary' : 'muted'}
-                style={{ fontWeight: focused ? '700' : '400' }}
+                style={{ fontWeight: focused ? '700' : '400', fontSize: 15 }}
               >
                 {label}
               </AppText>

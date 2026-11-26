@@ -27,7 +27,10 @@ const INDEXES = [
 
 function tableNames(raw: ReturnType<typeof createEmptyTestDatabase>['raw']): string[] {
   return raw
-    .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'")
+    .prepare(
+      `SELECT name FROM sqlite_master
+       WHERE type = 'table' AND name NOT LIKE 'sqlite_%' AND name NOT LIKE 'record_fts%'`,
+    )
     .all()
     .map((row) => String(row.name))
     .sort();
@@ -102,7 +105,8 @@ describe('migrating from every prior version', () => {
       // Rows written by the previous schema must survive the upgrade.
       if (previous >= 1) seedPerson(raw);
       expect(raw.prepare('PRAGMA user_version').get()).toEqual({ user_version: previous });
-      expect(tableNames(raw)).not.toContain('app_setting');
+      // `app_setting` arrives with v1, so it must be absent only when starting from v0.
+      if (previous < 1) expect(tableNames(raw)).not.toContain('app_setting');
 
       const result = runMigrations(migrations);
 
@@ -116,6 +120,56 @@ describe('migrating from every prior version', () => {
       close();
     },
   );
+});
+
+describe('v2 search index', () => {
+  it('backfills the search index for records that existed before it', () => {
+    // A database at v1 with data, exactly like a phone that upgraded the app.
+    const { raw, migrations, close } = databaseAtVersion(1);
+    seedPerson(raw);
+    raw
+      .prepare(
+        `INSERT INTO record (id, person_id, date, kind, title, symptoms, created_at, updated_at)
+         VALUES ('r1', 'p1', '2026-10-01', 'lab_test', 'Synthetic blood work',
+                 '["synthetic headache"]', 1, 1)`,
+      )
+      .run();
+
+    expect(runMigrations(migrations)).toEqual({ ok: true, value: LATEST_SCHEMA_VERSION });
+
+    // `ache` is a mid-word substring, which only the trigram tokenizer matches.
+    expect(
+      raw.prepare("SELECT COUNT(*) AS n FROM record_fts WHERE record_fts MATCH 'ache'").get(),
+    ).toEqual({ n: 1 });
+    close();
+  });
+
+  it('keeps the index in step with inserts, updates and deletes', () => {
+    const empty = createEmptyTestDatabase();
+    runMigrations(createMigrationDatabase(empty.client));
+    seedPerson(empty.raw);
+
+    const matches = (term: string): number => {
+      const row = empty.raw
+        .prepare('SELECT COUNT(*) AS n FROM record_fts WHERE record_fts MATCH ?')
+        .get(term);
+      return Number(row?.n ?? -1);
+    };
+
+    empty.raw.exec(`
+      INSERT INTO record (id, person_id, date, kind, title, symptoms, created_at, updated_at)
+        VALUES ('r1', 'p1', '2026-10-01', 'self_care', 'Synthetic migraine', '["synthetic nausea"]', 1, 1);
+    `);
+    expect(matches('migraine')).toBe(1);
+
+    empty.raw.exec("UPDATE record SET title = 'Synthetic backache' WHERE id = 'r1'");
+    expect(matches('migraine')).toBe(0);
+    expect(matches('backache')).toBe(1);
+
+    empty.raw.exec("DELETE FROM record WHERE id = 'r1'");
+    expect(matches('backache')).toBe(0);
+    empty.close();
+  });
 });
 
 describe('re-running migrations', () => {

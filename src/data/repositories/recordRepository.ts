@@ -108,11 +108,18 @@ export interface RecordFilter {
   readonly offset?: number;
 }
 
+export interface RecordPage {
+  readonly items: readonly RecordSummary[];
+  readonly hasMore: boolean;
+}
+
 export interface RecordRepository {
   create(personId: string, input: RecordFormInput): Result<string, AppError>;
   update(personId: string, recordId: string, input: RecordFormInput): Result<true, AppError>;
   getDetail(personId: string, recordId: string): RecordDetail | null;
   listSummaries(personId: string, filter?: RecordFilter): RecordSummary[];
+  /** One page of the timeline, plus whether another page exists (ADR-024). */
+  listPage(personId: string, filter: RecordFilter, limit: number, offset: number): RecordPage;
   recent(personId: string, limit?: number): RecordSummary[];
   count(personId: string): number;
   /** Cascades to medications, readings, attachments and the record's measurements. */
@@ -135,6 +142,9 @@ export function toRecordView(row: RecordRow): RecordView {
   const { symptoms, ...rest } = row;
   return { ...rest, symptoms: parseSymptoms(symptoms) };
 }
+
+/** Safety cap for callers that ask for a list without paging (Home's recent records, tests). */
+export const DEFAULT_PAGE_LIMIT = 50;
 
 /** The transaction handle Drizzle hands to a synchronous transaction callback. */
 type AppTransaction = Parameters<Parameters<AppDatabase['transaction']>[0]>[0];
@@ -224,20 +234,7 @@ export function createRecordRepository(
 
     const needle = filter?.search?.trim().toLowerCase();
     if (needle) {
-      // `instr` is a literal substring test: no LIKE wildcards to escape, and a stray `%` typed
-      // into search cannot widen the match.
-      conditions.push(sql`(
-        instr(lower(${record.title}), ${needle}) > 0 OR
-        instr(lower(${record.condition}), ${needle}) > 0 OR
-        instr(lower(${record.symptoms}), ${needle}) > 0 OR
-        instr(lower(${record.facility}), ${needle}) > 0 OR
-        instr(lower(${record.prescriptionText}), ${needle}) > 0 OR
-        instr(lower(${record.comments}), ${needle}) > 0 OR
-        exists (
-          select 1 from doctor d
-          where d.id = ${record.doctorId} and instr(lower(d.name), ${needle}) > 0
-        )
-      )`);
+      conditions.push(searchCondition(needle, personId));
     }
 
     return db
@@ -254,9 +251,51 @@ export function createRecordRepository(
       .from(record)
       .where(and(...conditions))
       .orderBy(desc(record.date), desc(record.createdAt), desc(record.id))
-      .limit(filter?.limit ?? 500)
+      .limit(filter?.limit ?? DEFAULT_PAGE_LIMIT)
       .offset(filter?.offset ?? 0)
       .all();
+  };
+
+  /**
+   * The search predicate.
+   *
+   * Three or more characters go through the FTS5 trigram index, which is what keeps symptom
+   * search fast once the timeline holds years of records (ADR-023). Shorter needles fall back to
+   * `instr`, because the trigram tokenizer cannot match fewer than three characters — and a
+   * one- or two-letter query is cheap and rare.
+   *
+   * A doctor's name is matched through a subquery instead of being copied into the index: the
+   * doctor table is tiny, and renaming a doctor must not require re-indexing every record.
+   */
+  const searchCondition = (needle: string, personId: string): SQL => {
+    const doctorMatch = sql`exists (
+      select 1 from doctor d
+      where d.id = ${record.doctorId} and instr(lower(d.name), ${needle}) > 0
+    )`;
+
+    if (needle.length < 3) {
+      // `instr` is a literal substring test: a stray `%` typed into search cannot widen the match.
+      return sql`(
+        instr(lower(${record.title}), ${needle}) > 0 OR
+        instr(lower(${record.condition}), ${needle}) > 0 OR
+        instr(lower(${record.symptoms}), ${needle}) > 0 OR
+        instr(lower(${record.facility}), ${needle}) > 0 OR
+        instr(lower(${record.prescriptionText}), ${needle}) > 0 OR
+        instr(lower(${record.comments}), ${needle}) > 0 OR
+        ${doctorMatch}
+      )`;
+    }
+
+    // Quoting turns the user's words into a single FTS phrase, so punctuation and `AND`/`OR`
+    // cannot turn a search box into a query-syntax error.
+    const phrase = `"${needle.replace(/"/g, '""')}"`;
+    return sql`(
+      ${record.id} in (
+        select r.id from record_fts f
+        join record r on r.rowid = f.rowid
+        where record_fts match ${phrase} and r.person_id = ${personId}
+      ) OR ${doctorMatch}
+    )`;
   };
 
   return {
@@ -355,6 +394,12 @@ export function createRecordRepository(
     },
 
     listSummaries,
+
+    listPage(personId, filter, limit, offset) {
+      // One extra row tells us whether another page exists without a second count query.
+      const rows = listSummaries(personId, { ...filter, limit: limit + 1, offset });
+      return { items: rows.slice(0, limit), hasMore: rows.length > limit };
+    },
 
     recent: (personId, limit = 5) => listSummaries(personId, { limit }),
 

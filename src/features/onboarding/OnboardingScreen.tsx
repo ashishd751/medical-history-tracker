@@ -20,7 +20,7 @@ import { useSession } from '@/lib/session';
 import {
   AppBanner,
   AppButton,
-  AppChip,
+  AppChoiceGrid,
   AppDateField,
   AppField,
   AppScreen,
@@ -38,6 +38,10 @@ const UNIT_LABELS: Record<UnitSystem, string> = {
   metric: strings.settings.unitsMetric,
   imperial: strings.settings.unitsImperial,
 };
+
+const SEX_OPTIONS = SEXES.map((value) => ({ value, label: sexLabel(value) }));
+const BLOOD_OPTIONS = BLOOD_TYPES.map((value) => ({ value, label: value }));
+const UNIT_OPTIONS = UNIT_SYSTEMS.map((value) => ({ value, label: UNIT_LABELS[value] }));
 
 function toNumberOrNull(value: string): number | null {
   const trimmed = value.trim();
@@ -193,17 +197,13 @@ export function OnboardingScreen() {
             <AppText variant="caption" color="muted">
               {strings.onboarding.sex}
             </AppText>
-            <View style={styles.chips}>
-              {SEXES.map((option) => (
-                <AppChip
-                  key={option}
-                  label={sexLabel(option)}
-                  selected={sex === option}
-                  onPress={() => setSex(option)}
-                  testID={`onboarding-sex-${option}`}
-                />
-              ))}
-            </View>
+            <AppChoiceGrid
+              options={SEX_OPTIONS}
+              selected={sex}
+              onSelect={setSex}
+              columns={2}
+              testIDPrefix="onboarding-sex"
+            />
           </View>
         ) : null}
 
@@ -212,17 +212,13 @@ export function OnboardingScreen() {
             <AppText variant="subtitle" accessibilityRole="header">
               {strings.onboarding.step2Title}
             </AppText>
-            <View style={styles.chips}>
-              {UNIT_SYSTEMS.map((option) => (
-                <AppChip
-                  key={option}
-                  label={UNIT_LABELS[option]}
-                  selected={unitSystem === option}
-                  onPress={() => setUnitSystem(option)}
-                  testID={`onboarding-units-${option}`}
-                />
-              ))}
-            </View>
+            <AppChoiceGrid
+              options={UNIT_OPTIONS}
+              selected={unitSystem}
+              onSelect={setUnitSystem}
+              columns={2}
+              testIDPrefix="onboarding-units"
+            />
             <View style={styles.row}>
               <View style={styles.half}>
                 <AppField
@@ -252,17 +248,13 @@ export function OnboardingScreen() {
             <AppText variant="caption" color="muted">
               {strings.home.bloodType}
             </AppText>
-            <View style={styles.chips}>
-              {BLOOD_TYPES.map((type) => (
-                <AppChip
-                  key={type}
-                  label={type}
-                  selected={bloodType === type}
-                  onPress={() => setBloodType(bloodType === type ? null : type)}
-                  testID={`onboarding-blood-${type}`}
-                />
-              ))}
-            </View>
+            <AppChoiceGrid
+              options={BLOOD_OPTIONS}
+              selected={bloodType}
+              onSelect={(value) => setBloodType(bloodType === value ? null : value)}
+              columns={4}
+              testIDPrefix="onboarding-blood"
+            />
           </View>
         ) : null}
 

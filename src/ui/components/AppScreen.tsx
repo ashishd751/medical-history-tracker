@@ -69,6 +69,9 @@ export function AppScreen({
         {
           backgroundColor: colors.background,
           paddingTop: insets.top + spacing.md,
+          // Screens with a pinned footer (forms, onboarding) must clear the home indicator, or the
+          // footer button sits half under it.
+          paddingBottom: scroll ? 0 : insets.bottom,
         },
       ]}
     >

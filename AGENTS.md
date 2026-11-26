@@ -56,6 +56,9 @@ Run `npm run deps:check` after adding imports.
   call `rebuildSearchIndex(db)` from `src/data` (ADR-023).
 - All file I/O goes through `src/data/fileStore.ts` and returns `Result`.
 - Store **relative** attachment paths in SQLite, never absolute URIs.
+- Attachment work goes through `src/features/records/attachments/attachmentService.ts`: pick → stage
+  in `staging/<draftId>/` → move on save → delete after commit. The startup sweeper reconciles files
+  with rows; do not delete files inline anywhere else (ADR-033, ADR-034).
 - Dates without time are `YYYY-MM-DD` strings in storage; never round-trip them through UTC. Render
   them for users as **`DD/MM/YYYY`** (use `formatDisplayDate` from `src/lib/dates.ts`). Never show a
   raw ISO date in the UI.

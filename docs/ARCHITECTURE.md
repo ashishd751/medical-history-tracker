@@ -82,6 +82,28 @@ src/data/testing/*          node:sqlite harness used by tests only
 - The timeline reads through `listPage(personId, filter, limit, offset)` (`limit + 1` for `hasMore`) and
   counts through `count(personId, filter)`; both share one filter predicate (ADR-024).
 
+## Attachments (Phase 2)
+
+```
+src/domain/attachments.ts         mime/extension rules, path builders, limit checks (pure)
+src/platform/*                    pickers, image processor, PDF thumbnail, share sheet (ports + fakes)
+src/data/fileStore.ts             the only door to the file system; relative paths; Result
+src/data/fileSweeper.ts           startup reconciliation of files against rows
+src/features/records/attachments  import pipeline, staged draft files, sections, gallery, viewer
+```
+
+- Files live under the documents directory as `attachments/<personId>/<recordId>/<id>.<ext>` and
+  `thumbs/<id>.jpg`; SQLite stores those **relative** strings only (ADR-030).
+- A picked file is staged under `staging/<draftId>/` and recorded in the record draft, so an app
+  kill does not lose it. Save moves files into place first, then writes the record and its rows in
+  one transaction, and moves the files back if that transaction fails (ADR-033).
+- Images are re-encoded to JPEG at most 2000 px with the EXIF rotation baked in; PNG/WebP are
+  flattened onto white first (ADR-031). Thumbnails are 400 px JPEG.
+- The startup sweeper deletes unreferenced files, empty folders and dead staging folders, and keeps
+  rows whose file is missing, which the UI shows as "File missing" (ADR-034).
+- The viewer zooms with gesture-handler/Reanimated; a PDF shows its first page and opens through the
+  share sheet (ADR-035).
+
 ## UI system
 
 - `src/ui/tokens.ts` owns colour, spacing, radius and the type scale. Features never hard-code a size;

@@ -729,4 +729,134 @@ next step is a targeted accessory-view change, not a global one.
 - The overlay is system UI. The headless simulator here has no Simulator.app, so the prompt could not be
   re-triggered with real hardware keystrokes; with the software keyboard and automation, entry across
   fields, a pause past the draft save, save and read-back all pass. If it still appears, dismissing it
-  or turning off "Connect Hardware Keyboard" restores the on-screen keyboard and typing.
+
+---
+
+## ADR-030 Attachments live in the documents directory under relative paths
+
+**Context.** A backup restored on a new phone (Phase 5) must find every attachment, and the app's
+container path changes between installs and between platforms. Phase 2 also has to store files for
+records that do not exist yet.
+
+**Decision.** Files are written only through `src/data/fileStore.ts`, as paths relative to the
+documents directory:
+
+```
+attachments/<personId>/<recordId>/<attachmentId>.<ext>
+thumbs/<attachmentId>.jpg
+staging/<draftId>/<attachmentId>.<ext>
+staging/<draftId>/thumbs/<attachmentId>.jpg
+```
+
+SQLite stores those relative strings and never an absolute URI. `FileStore` is built over an
+injected `FileSystemPort` (one Expo implementation, one in-memory implementation for tests) and
+every operation returns a `Result`. Hashing is `File.digest('SHA-256')` inside the store rather than
+a separate platform port: reading a stored file to hash it is file I/O, and the file layer already
+owns I/O.
+
+**Consequences.** A restored backup resolves anywhere. Tests exercise copy/move/delete/list/hash
+without a device. An absolute URI reaching SQLite is a bug, so the path builders in `src/domain`
+reject segments that could escape a directory.
+
+## ADR-031 Images are re-encoded to JPEG, and transparent PNG/WebP are flattened onto white first
+
+**Context.** Photos arrive as HEIC (iPhone), JPEG, PNG or WebP, often 4000 px and 8 MB, sometimes
+rotated by an EXIF tag. JPEG has no alpha channel and both platforms' encoders drop transparency
+without compositing, which turns transparent pixels black.
+
+**Decision.** `expo-image-manipulator` (installed, ADR-015) decodes with `maxWidth`/`maxHeight` of
+2000 so a 12-megapixel photo is down-sampled while decoding and the EXIF orientation is baked into
+the pixels. The result is saved as JPEG at quality 0.8, re-encoded at 0.6 then 0.45 only if the
+stored file is still over 1.5 MB. PNG and WebP sources take one extra step: the normalised image is
+drawn on a white `expo-print` PDF page and rendered back to JPEG with
+`react-native-pdf-thumbnail`, whose renderer draws on white. If that step fails, the direct JPEG is
+kept and a warning is logged rather than losing the attachment.
+
+**Consequences.** Every stored image is upright, at most 2000 px, JPEG, under the size target, and
+free of EXIF (a backup cannot leak a GPS tag). HEIC works on both platforms. The flatten step costs
+about a second and a temporary PDF in the cache, only for PNG/WebP. OCR in Phase 6 receives a
+2000 px JPEG, which is ample for a printed page.
+
+## ADR-032 Device capabilities sit behind interfaces with fakes
+
+**Context.** Pickers, the image manipulator and the PDF renderer cannot run in Jest, yet the import
+pipeline is where the interesting ordering lives.
+
+**Decision.** `src/platform/` holds one interface per capability — `ImageLibraryPicker` (library
+only: there is no camera call anywhere), `DocumentPicker`, `ImageProcessor`, `PdfThumbnailer`,
+`FileSharer` — with one Expo implementation each and recordable fakes in
+`src/platform/testing/fakes.ts`. Platform outcomes are their own unions (`picked`, `cancelled`,
+`denied`, `failed`), so the layer knows nothing about `AppError`; features map outcomes to error
+codes and friendly sentences. Dependency-cruiser enforces that `src/platform` imports no feature,
+data or UI module.
+
+**Consequences.** The whole pipeline is unit-tested with the in-memory file system. Cancellation is
+a distinct outcome, never an error. A picker swap (or a future scanner) is one file.
+
+## ADR-033 Save ordering: files first, one transaction, files back on failure
+
+**Context.** A record and its attachments must not disagree. Attachments can be picked before the
+record has an id, and the database cannot be rolled back after files have moved.
+
+**Decision.** The record form generates the record id (`uuidv7`) before saving, so final paths are
+known in advance. On Save:
+
+1. move each staged file and thumbnail into `attachments/…` and `thumbs/`;
+2. if a move fails, move the already-moved files back to staging and stop;
+3. write the record, its children and its attachment rows in **one** transaction (the repository
+   takes `attachments` and `removedAttachmentIds`);
+4. if the transaction fails, move the files back to staging;
+5. after a successful commit, delete the files of removed rows and the empty staging folder.
+
+`recordRepository.remove()` reads the attachment paths inside the transaction and returns them, so
+the screen can delete the files after the commit. Attachment rows are never written outside the
+record's transaction.
+
+**Consequences.** A failed save leaves the user's files and draft exactly as they were, ready to
+retry. A failed file deletion leaves an orphan that the sweeper removes on the next launch.
+
+## ADR-034 The startup sweeper keeps rows whose file is missing
+
+**Context.** Files can outlive rows (a failed delete, an interrupted save, a discarded draft whose
+folder remained). The original brief said a row whose file is missing should be removed.
+
+**Decision.** After migrations, `sweepAttachmentsAtStartup()` runs in the background and deletes:
+unreferenced files under `attachments/` and `thumbs/`, empty record/person folders, staging folders
+that no stored draft references, and unreferenced files inside the live draft's staging folder. It
+**keeps** rows whose file is missing and logs how many there were; the UI shows "File missing" on
+that thumbnail and the record can still be edited or deleted deliberately. Staging paths referenced
+by the stored draft are protected, so a killed app does not lose unsaved attachments.
+
+**Consequences.** Nothing the user believes is recorded disappears silently. The sweeper is
+idempotent, never throws, and is not a `VACUUM`-style job: it never touches `record_fts` (ADR-023).
+
+## ADR-035 The viewer is in-app; a PDF is handed to another app
+
+**Context.** A prescription photo must be readable: pinch-zoom, pan, double-tap. A PDF cannot be
+rendered by this app without a viewer dependency, and the file must still be reachable.
+
+**Decision.** `app/attachment/[id].tsx` is a modal route. Images render in `AppZoomableImage`, built
+with the installed `react-native-gesture-handler` and `react-native-reanimated` (no new
+dependency): pinch 1–5×, pan only while zoomed, double-tap toggles 1× and 2.5×, and zooming out
+re-centres. PDFs show their first-page thumbnail and an **Open** action that shares the file through
+`expo-sharing`, so the user's own reader opens it. The share sheet is also the fallback when a file
+cannot be displayed.
+
+**Consequences.** Full-screen zoom works on both platforms without another native dependency. A PDF
+Open leaves the app; on a device with no reader the UI says so. `expo-sharing` never touches the
+network. Jest maps Reanimated to a small inert mock; gestures and animation are verified on devices.
+
+## ADR-036 Attachment limits
+
+**Context.** A family phone has finite storage and a record screen must stay readable.
+
+**Decision.** `src/domain/limits.ts` owns: ten attachments per record, 25 MB per PDF, 40 MB per
+image source (it is re-encoded), images at 2000 px, thumbnails at 400 px, JPEG quality 0.8 with a
+1.5 MB target. Allowed types are JPEG, PNG, HEIC/HEIF, WebP and PDF; anything else is refused with
+one sentence. Checks happen twice: before copying (a rejected file is never written) and again on
+the real staged size for PDFs. The reason (`unsupported_type`, `too_large`, `too_many`) is mapped to
+user text in the service, so the form never composes an error message.
+
+**Consequences.** A 26 MB PDF is refused without being copied. A picker that withholds a size cannot
+cause a false rejection, because the real size decides. Raising a limit is a one-line change plus a
+test.

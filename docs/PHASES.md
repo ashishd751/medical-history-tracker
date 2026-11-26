@@ -51,10 +51,13 @@ approval. Never start the next phase unprompted.
 
 ## Phase 2 — Attachments
 
-- [ ] Library image + PDF/file pickers, compression, thumbnails, SHA-256
-- [ ] Relative-path FileStore, orphan sweeper, zoomable viewer
-- [ ] Prescription "upload image or type" control
-- [ ] Files survive restart; deleting a record deletes its files; still no camera permission
+- [x] Library image + PDF/file pickers, compression, thumbnails, SHA-256 (ADR-030 to ADR-032)
+- [x] Relative-path FileStore, orphan sweeper, zoomable viewer (ADR-034, ADR-035)
+- [x] Prescription "upload image or type" control
+- [x] Files survive restart; deleting a record deletes its files; still no camera permission
+      — verified on the Android emulator (EXIF upright, resize, checksum, staging across a kill,
+      cascade delete, sweeper); see `docs/PHASE2-PROGRESS.md`. The iOS photo picker did not present
+      under automation in this session and still needs a manual pass.
 
 ## Phase 3 — Profile and measurements (MVP)
 

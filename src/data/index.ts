@@ -35,6 +35,7 @@ export type {
   RecordRow,
   TestResultRow,
 } from './schema';
+export { rebuildSearchIndex } from './searchIndex';
 
 /**
  * The repositories, or a thrown error.

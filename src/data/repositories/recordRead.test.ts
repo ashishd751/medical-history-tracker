@@ -105,6 +105,86 @@ describe('recordRepository reads', () => {
     fixture.close();
   });
 
+  describe('recordRepository FTS search', () => {
+    const titles = (
+      fixture: ReturnType<typeof createRepositoryFixture>,
+      personId: string,
+      needle: string,
+    ) => fixture.repos.records.listSummaries(personId, { search: needle }).map((row) => row.title);
+
+    it('never returns another person’s text for a shared symptom', () => {
+      const fixture = createRepositoryFixture();
+      const otherPerson = fixture.addPerson('Synthetic Relative');
+      fixture.repos.records.create(
+        fixture.personId,
+        recordInput({ title: 'Synthetic mine', symptoms: ['synthetic headache'] }),
+      );
+      fixture.repos.records.create(
+        otherPerson,
+        recordInput({ title: 'Synthetic theirs', symptoms: ['synthetic headache'] }),
+      );
+
+      expect(titles(fixture, fixture.personId, 'headache')).toEqual(['Synthetic mine']);
+      expect(titles(fixture, otherPerson, 'headache')).toEqual(['Synthetic theirs']);
+      fixture.close();
+    });
+
+    it('matches a doctor’s name through the subquery, at any needle length', () => {
+      const fixture = createRepositoryFixture();
+      const doctor = fixture.repos.doctors.ensure({ name: 'Dr. Quillon' });
+      if (!doctor.ok) throw new Error('setup failed');
+      fixture.repos.records.create(
+        fixture.personId,
+        recordInput({ title: 'Synthetic visit', doctorId: doctor.value.id, symptoms: [] }),
+      );
+      fixture.repos.records.create(
+        fixture.personId,
+        recordInput({ title: 'Synthetic other', symptoms: [] }),
+      );
+
+      // Three or more characters go through FTS plus the doctor clause; two characters take the
+      // `instr` branch, which also has to include the doctor.
+      expect(titles(fixture, fixture.personId, 'quillon')).toEqual(['Synthetic visit']);
+      expect(titles(fixture, fixture.personId, 'Dr')).toEqual(['Synthetic visit']);
+      fixture.close();
+    });
+
+    it('ignores case and matches in the middle of a word', () => {
+      const fixture = createRepositoryFixture();
+      fixture.repos.records.create(
+        fixture.personId,
+        recordInput({ title: 'Synthetic check-up', symptoms: ['synthetic headache'] }),
+      );
+
+      expect(titles(fixture, fixture.personId, 'HEADACHE')).toEqual(['Synthetic check-up']);
+      expect(titles(fixture, fixture.personId, 'Ache')).toEqual(['Synthetic check-up']);
+      expect(titles(fixture, fixture.personId, 'synth')).toEqual(['Synthetic check-up']);
+      fixture.close();
+    });
+
+    it.each([
+      '%',
+      'AND',
+      'OR',
+      '*',
+      '(',
+      '"',
+      '***',
+      'a"b',
+      'NEAR(',
+      'title:routine',
+      'synth AND routine',
+      "-'",
+    ])('treats %p as literal search text', (needle) => {
+      const fixture = createRepositoryFixture();
+      fixture.repos.records.create(fixture.personId, recordInput({ title: 'Synthetic routine' }));
+
+      expect(() => titles(fixture, fixture.personId, needle)).not.toThrow();
+      expect(titles(fixture, fixture.personId, needle)).toEqual([]);
+      fixture.close();
+    });
+  });
+
   it('treats SQL wildcards in the search box literally', () => {
     const fixture = createRepositoryFixture();
     fixture.repos.records.create(fixture.personId, recordInput({ title: 'Routine visit' }));

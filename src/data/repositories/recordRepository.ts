@@ -265,11 +265,22 @@ export function createRecordRepository(
     )`;
 
     if (needle.length < 3) {
+      // Symptoms are a JSON array in storage. A naive `instr` over the raw column would match the
+      // JSON syntax itself — searching `"` would return every record with any symptom — so the
+      // fallback walks the decoded array instead. `json_valid` keeps a damaged value from turning
+      // one bad row into a failed search (parseSymptoms is just as forgiving).
+      const symptomMatch = sql`exists (
+        select 1 from json_each(
+          case when json_valid(${record.symptoms}) then ${record.symptoms} else '[]' end
+        )
+        where instr(lower(json_each.value), ${needle}) > 0
+      )`;
+
       // `instr` is a literal substring test: a stray `%` typed into search cannot widen the match.
       return sql`(
         instr(lower(${record.title}), ${needle}) > 0 OR
         instr(lower(${record.condition}), ${needle}) > 0 OR
-        instr(lower(${record.symptoms}), ${needle}) > 0 OR
+        ${symptomMatch} OR
         instr(lower(${record.facility}), ${needle}) > 0 OR
         instr(lower(${record.prescriptionText}), ${needle}) > 0 OR
         instr(lower(${record.comments}), ${needle}) > 0 OR

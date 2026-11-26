@@ -25,7 +25,10 @@ Baseline at `a9a4c46`: typecheck, lint, dependency rules (106 modules) and Prett
 - [x] **T5. Redesign the Profile page (R1).** New `AppFactGrid` in `src/ui`: two-column tiles (DOB |
       Sex, Blood type | BMI + badge, Height | Weight) and full-width rows for Allergies and Chronic
       conditions. The edit sheet uses `AppChoiceGrid` (4 columns); `testID`s and DD/MM/YYYY kept.
-- [ ] **T6. Tests (R6).** Search, cascade, rebuild, `AppChoiceGrid`, Profile layout.
+- [x] **T6. Tests (R6).** Repository FTS tests (person scoping, doctor name, case, mid-word, 12 hostile
+      needles), person-cascade FTS test, `rebuildSearchIndex` test, `AppChoiceGrid` tests (single,
+      multi, keyboard) and a Profile layout test. The hostile-input test found and fixed a real
+      defect: a `"` search matched every record with symptoms because the raw JSON was scanned.
 - [ ] **T7. Search benchmark.** `npm run bench:search`, numbers recorded for ADR-023.
 - [ ] **T8. Debounce (R8).** Only if trivial; otherwise recorded as not done.
 - [ ] **T9. Documentation (R2).** ADR-023 to ADR-027, `PHASES.md`, `README.md`,

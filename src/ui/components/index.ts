@@ -7,6 +7,7 @@ export { AppChoiceGrid, type AppChoiceGridProps, type ChoiceOption } from './App
 export { AppDateField, type AppDateFieldProps } from './AppDateField';
 export { AppDialog, type AppDialogProps } from './AppDialog';
 export { AppEmptyState, type AppEmptyStateProps } from './AppEmptyState';
+export { type AppFact, AppFactGrid, type AppFactGridProps } from './AppFactGrid';
 export { AppField, type AppFieldProps } from './AppField';
 export { AppListRow, type AppListRowProps } from './AppListRow';
 export { AppScreen, type AppScreenProps } from './AppScreen';

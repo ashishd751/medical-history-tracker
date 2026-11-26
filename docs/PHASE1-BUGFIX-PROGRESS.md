@@ -22,8 +22,9 @@ Baseline at `a9a4c46`: typecheck, lint, dependency rules (106 modules) and Prett
 - [x] **T4. Fix R5 (tab label token).** `typography.tabLabel` (15/20) replaces the hard-coded size;
       labels are `numberOfLines={1}` with OS scaling capped at 1.2 so "Settings" fits its ~72 dp
       slot on a 360 dp phone. `AppTabBar.test.tsx` checks the token and both props.
-- [ ] **T5. Redesign the Profile page (R1).** Two-column fact grid + full-width rows; `AppChoiceGrid`
-      for blood type.
+- [x] **T5. Redesign the Profile page (R1).** New `AppFactGrid` in `src/ui`: two-column tiles (DOB |
+      Sex, Blood type | BMI + badge, Height | Weight) and full-width rows for Allergies and Chronic
+      conditions. The edit sheet uses `AppChoiceGrid` (4 columns); `testID`s and DD/MM/YYYY kept.
 - [ ] **T6. Tests (R6).** Search, cascade, rebuild, `AppChoiceGrid`, Profile layout.
 - [ ] **T7. Search benchmark.** `npm run bench:search`, numbers recorded for ADR-023.
 - [ ] **T8. Debounce (R8).** Only if trivial; otherwise recorded as not done.

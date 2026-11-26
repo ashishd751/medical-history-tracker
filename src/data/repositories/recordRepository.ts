@@ -258,7 +258,7 @@ export function createRecordRepository(
    * A doctor's name is matched through a subquery instead of being copied into the index: the
    * doctor table is tiny, and renaming a doctor must not require re-indexing every record.
    */
-  const searchCondition = (needle: string, personId: string): SQL => {
+  const searchCondition = (needle: string): SQL => {
     const doctorMatch = sql`exists (
       select 1 from doctor d
       where d.id = ${record.doctorId} and instr(lower(d.name), ${needle}) > 0
@@ -291,11 +291,13 @@ export function createRecordRepository(
     // Quoting turns the user's words into a single FTS phrase, so punctuation and `AND`/`OR`
     // cannot turn a search box into a query-syntax error.
     const phrase = `"${needle.replace(/"/g, '""')}"`;
+    // The subquery returns index rowids, and the caller's `WHERE` already scopes the person.
+    // Joining `record` inside the subquery instead lets SQLite drive from the person index and
+    // probe the FTS table once per row — measured at ~440 ms for a rare term on 10,000 records,
+    // versus ~0.3 ms in this shape (ADR-023).
     return sql`(
-      ${record.id} in (
-        select r.id from record_fts f
-        join record r on r.rowid = f.rowid
-        where record_fts match ${phrase} and r.person_id = ${personId}
+      record.rowid in (
+        select rowid from record_fts where record_fts match ${phrase}
       ) OR ${doctorMatch}
     )`;
   };
@@ -316,7 +318,7 @@ export function createRecordRepository(
 
     const needle = filter?.search?.trim().toLowerCase();
     if (needle) {
-      conditions.push(searchCondition(needle, personId));
+      conditions.push(searchCondition(needle));
     }
     return conditions;
   };

@@ -29,7 +29,12 @@ Baseline at `a9a4c46`: typecheck, lint, dependency rules (106 modules) and Prett
       needles), person-cascade FTS test, `rebuildSearchIndex` test, `AppChoiceGrid` tests (single,
       multi, keyboard) and a Profile layout test. The hostile-input test found and fixed a real
       defect: a `"` search matched every record with symptoms because the raw JSON was scanned.
-- [ ] **T7. Search benchmark.** `npm run bench:search`, numbers recorded for ADR-023.
+- [x] **T7. Search benchmark.** `npm run bench:search` seeds 20,000 synthetic records (10,000 per
+      person) and reports median/p95 for instr vs FTS. Run on Node 24.14 / SQLite 3.51.2:
+      common `ache` page 0.12 ms vs 1.04 ms (the old scan early-exits); rare `sarcoidosis` page
+      8.01 ms vs 0.33 ms (24×); common count 5.95 ms vs 1.74 ms (3.4×); rare count 7.63 ms vs
+      0.27 ms (28×). The benchmark exposed a bad plan in the original FTS query shape (440 ms,
+      probing the index per row); the repository now uses `record.rowid IN (SELECT rowid …)`.
 - [ ] **T8. Debounce (R8).** Only if trivial; otherwise recorded as not done.
 - [ ] **T9. Documentation (R2).** ADR-023 to ADR-027, `PHASES.md`, `README.md`,
       `ARCHITECTURE.md`, `AGENTS.md`, test counts.

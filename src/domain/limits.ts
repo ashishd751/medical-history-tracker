@@ -46,6 +46,8 @@ export const IMAGE_MAX_LONG_EDGE = 2000;
 export const THUMB_MAX_LONG_EDGE = 400;
 /** JPEG quality. At 2000 px this lands well under the 1.5 MB target for a typical page. */
 export const IMAGE_JPEG_QUALITY = 0.8;
+/** A stored image above this is re-encoded at a lower quality before it is accepted. */
+export const IMAGE_TARGET_BYTES = 1_500_000;
 
 export function inRange(value: number, range: NumericRange): boolean {
   return Number.isFinite(value) && value >= range.min && value <= range.max;

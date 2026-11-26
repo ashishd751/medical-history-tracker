@@ -20,7 +20,7 @@ npm run typecheck && npm run lint && npm run deps:check && npm run format:check 
 - [x] **T3** `src/data/fileStore.ts` over an injected file-system port; tests with the in-memory fake.
 - [x] **T4** `attachmentRepository` + `recordRepository.remove()` returns attachment paths; SQLite tests.
 - [x] **T5** Attachment service (import pipeline, save/removal ordering, compensation); tests with fakes.
-- [ ] **T6** Startup sweeper (orphans, staging, rows with missing files); tests.
+- [x] **T6** Startup sweeper (orphans, staging, rows with missing files); tests.
 - [ ] **T7** Record form sections (Prescription / Reports and other files) + draft integration.
 - [ ] **T8** Record detail gallery + zoom viewer + PDF thumbnail and Open.
 - [ ] **T9** Component tests (+ Maestro flow if stable on both platforms).

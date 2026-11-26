@@ -10,6 +10,7 @@ export {
   getFileStore,
   type ImportedFile,
 } from './fileStore';
+export { sweepAttachmentFiles, type SweepSummary } from './fileSweeper';
 export { LATEST_SCHEMA_VERSION } from './migrations';
 export {
   type AppRepositories,
@@ -49,6 +50,7 @@ export type {
   TestResultRow,
 } from './schema';
 export { rebuildSearchIndex } from './searchIndex';
+export { sweepAttachmentsAtStartup } from './startupSweep';
 
 /**
  * The repositories, or a thrown error.

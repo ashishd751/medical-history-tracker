@@ -19,7 +19,9 @@ Baseline at `a9a4c46`: typecheck, lint, dependency rules (106 modules) and Prett
 - [x] **T3. Fix R4 (record count).** `records.count(personId, filter?)` shares the list's `WHERE`
       predicate; the Records header shows the total, not `rows.length`. Count test (30 matches, 25
       loaded, filters + person scoping) passes.
-- [ ] **T4. Fix R5 (tab label token).** `typography.tabLabel` token, no hard-coded size.
+- [x] **T4. Fix R5 (tab label token).** `typography.tabLabel` (15/20) replaces the hard-coded size;
+      labels are `numberOfLines={1}` with OS scaling capped at 1.2 so "Settings" fits its ~72 dp
+      slot on a 360 dp phone. `AppTabBar.test.tsx` checks the token and both props.
 - [ ] **T5. Redesign the Profile page (R1).** Two-column fact grid + full-width rows; `AppChoiceGrid`
       for blood type.
 - [ ] **T6. Tests (R6).** Search, cascade, rebuild, `AppChoiceGrid`, Profile layout.

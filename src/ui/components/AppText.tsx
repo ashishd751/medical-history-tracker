@@ -11,6 +11,8 @@ export interface AppTextProps {
   color?: SemanticColor;
   align?: 'left' | 'center' | 'right';
   numberOfLines?: number | undefined;
+  /** Caps OS font scaling. Used by tab labels, where the slot width is fixed. */
+  maxFontSizeMultiplier?: number | undefined;
   style?: StyleProp<TextStyle>;
   /** For screen readers when the text is a heading. */
   accessibilityRole?: 'header' | 'text' | undefined;
@@ -41,6 +43,7 @@ export function AppText({
   color = 'default',
   align = 'left',
   numberOfLines,
+  maxFontSizeMultiplier,
   style,
   accessibilityRole,
   testID,
@@ -49,6 +52,7 @@ export function AppText({
   return (
     <PaperText
       numberOfLines={numberOfLines}
+      maxFontSizeMultiplier={maxFontSizeMultiplier}
       accessibilityRole={accessibilityRole}
       testID={testID}
       style={[typography[variant], { color: resolveColor(color, colors), textAlign: align }, style]}

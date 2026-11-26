@@ -33,6 +33,7 @@ export function groupAttachments(
       .map((row) => ({
         id: row.id,
         label: attachmentRoleLabel(row.role),
+        caption: isPdf(row.mime) ? strings.attachments.pdfLabel : strings.attachments.imageLabel,
         thumbnailUri:
           row.thumbRelPath && files.exists(row.thumbRelPath) ? files.toUri(row.thumbRelPath) : null,
         shareable: isPdf(row.mime),

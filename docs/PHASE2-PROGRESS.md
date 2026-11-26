@@ -23,7 +23,7 @@ npm run typecheck && npm run lint && npm run deps:check && npm run format:check 
 - [x] **T6** Startup sweeper (orphans, staging, rows with missing files); tests.
 - [x] **T7** Record form sections (Prescription / Reports and other files) + draft integration.
 - [x] **T8** Record detail gallery + zoom viewer + PDF thumbnail and Open.
-- [ ] **T9** Component tests (+ Maestro flow if stable on both platforms).
+- [x] **T9** Component tests (+ Maestro flow if stable on both platforms).
 - [ ] **T10** iOS simulator and Android emulator verification of section 6 items.
 - [ ] **T11** Docs: ADR-030 onward, `PHASES.md`, `README.md`, `ARCHITECTURE.md`, `.maestro/README.md`.
 - [ ] **T12** Final gate + `npm run doctor` + report.

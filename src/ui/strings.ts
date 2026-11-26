@@ -203,6 +203,8 @@ export const strings = {
     filesSaveFailed: 'The record was saved, but its files were not. Please try again.',
     shareUnavailable: 'No app on this device can open that file.',
     thumbnailAlt: (role: string) => `${role} attachment`,
+    pdfLabel: 'PDF',
+    imageLabel: 'Image',
   },
   profile: {
     title: 'Profile',

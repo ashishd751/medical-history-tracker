@@ -5,8 +5,10 @@ import { AppText, AppThumbnail, spacing, strings } from '@/ui';
 /** One stored (or staged) file, already resolved to a URI the view can draw. */
 export interface AttachmentGridItem {
   readonly id: string;
-  /** Role label, used for the caption and the screen-reader label. */
+  /** Role label, used for the screen-reader label. */
   readonly label: string;
+  /** What the tile prints under the preview; defaults to the role label. */
+  readonly caption?: string;
   /** Absolute thumbnail URI, or null when the thumbnail file is missing. */
   readonly thumbnailUri: string | null;
 }
@@ -43,7 +45,7 @@ export function AttachmentGrid({ items, onOpen, onRemove, testID }: AttachmentGr
             />
           </Pressable>
           <AppText variant="caption" color="muted" numberOfLines={1}>
-            {item.label}
+            {item.caption ?? item.label}
           </AppText>
           {onRemove ? (
             <Pressable

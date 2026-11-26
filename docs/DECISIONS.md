@@ -692,3 +692,41 @@ first three; this ADR records the rules so later screens stay consistent.
   and `AppListRow.test.tsx` asserts a 16 pt semibold title beside a 13 pt badge. The dialog radius is
   verified on the simulator and emulator (a Paper-internal style is not reachable from a unit test
   without asserting implementation details).
+
+---
+
+## ADR-029 Every text field opts out of system AutoFill
+
+**Context.** On the iOS 26 simulator with a hardware keyboard, focusing a record field and typing one
+character brought up the system "AutoFill" prompt over the form and took the keyboard away, blocking
+further input. Two problems at once: the fields were eligible for the system's form filling, and
+nothing typed into a medical record should ever be offered to iCloud Keychain, Contacts or a password
+manager. The app itself was not dropping keystrokes — automation typed consecutive characters, paused
+past the 400 ms draft save, switched fields, saved and read the values back.
+
+**Options.** (a) leave `textContentType` unset (the default) and treat the prompt as environment noise;
+(b) opt every field out explicitly; (c) also hide the edit menu (`contextMenuHidden`) and the QuickType
+bar (`autoCorrect={false}`) to remove every system surface.
+
+**Decision.** (b), in `AppField`, so every input in the app inherits it (`AppField` backs the record
+form, onboarding, Profile, Settings, medications, readings and vitals; `AppTagInput` wraps `AppField`):
+
+- `textContentType="none"` — React Native maps this to an empty `UITextContentType`, the documented way
+  to tell iOS that a field has no AutoFill semantics.
+- `autoComplete="off"` — the same intent, and the value RN maps to `none` on iOS.
+- `importantForAutofill="no"` — the Android opt-out, so no autofill service offers content here.
+
+Option (c) was rejected: hiding the context menu would remove copy/paste from prescription and comment
+fields, and disabling autocorrect changes text entry everywhere. If a system prompt still appears, the
+next step is a targeted accessory-view change, not a global one.
+
+**Consequences.**
+
+- No system AutoFill prompt or credential offer on any medical field, and medical text never enters the
+  keychain or contacts autofill stores. That also matches the app's no-network, on-device model.
+- Copy/paste, selection and autocorrect behave as before.
+- `AppField.test.tsx` asserts the three props, so a refactor cannot silently restore the default.
+- The overlay is system UI. The headless simulator here has no Simulator.app, so the prompt could not be
+  re-triggered with real hardware keystrokes; with the software keyboard and automation, entry across
+  fields, a pause past the draft save, save and read-back all pass. If it still appears, dismissing it
+  or turning off "Connect Hardware Keyboard" restores the on-screen keyboard and typing.

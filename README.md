@@ -5,7 +5,7 @@ no account, no analytics, no camera, no notifications.
 
 **Status:** Phase 1 (data core and manual records) complete, including its review pass: a paginated
 timeline, FTS5 symptom search, truthful result counts and the UI fixes from the review (ADR-023 to
-ADR-028). 26 Jest suites / 161 tests. No file attachments yet (Phase 2).
+ADR-029). 27 Jest suites / 162 tests. No file attachments yet (Phase 2).
 
 ## Requirements
 

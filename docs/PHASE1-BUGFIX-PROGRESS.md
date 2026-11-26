@@ -113,6 +113,23 @@ Regression tests: `SnapshotCard.test.tsx` (four 50% cells at normal text) and `A
 (16 pt semibold title beside a 13 pt badge). The dialog radius was verified visually on both devices.
 The user's existing simulator records were preserved; only the two synthetic QA rows were removed.
 
+## Autofill fix — 26 Nov 2026
+
+Reported from a screenshot: on the iOS 26 simulator with a hardware keyboard, typing one character in a
+record field raised the system "AutoFill" prompt over the form and the field stopped accepting input.
+
+- Verified the app was not losing keystrokes: automation typed consecutive characters into the same
+  field, paused two seconds (past the 400 ms draft save), typed again, switched fields, saved the record
+  and read both values back. Focus survives the draft write.
+- The overlay is iOS system UI. Every text field now opts out of AutoFill in `AppField`
+  (`textContentType="none"`, `autoComplete="off"`, `importantForAutofill="no"`), which is also the
+  correct privacy posture: medical text must never be offered to the keychain or contacts.
+- `AppField.test.tsx` asserts the three props. Commit `6be8847`.
+- The headless simulator here has no Simulator.app, so the prompt itself could not be re-triggered with
+  hardware keystrokes. Software-keyboard entry, cross-field entry, save and read-back all pass. If the
+  prompt still appears on a hardware-keyboard simulator, dismissing it or turning off "Connect Hardware
+  Keyboard" restores the on-screen keyboard.
+
 ## Assumptions and notes
 
 - The branch is the only place for this work; nothing is pushed, merged or opened as a PR.

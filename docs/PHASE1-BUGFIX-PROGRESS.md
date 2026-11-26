@@ -16,7 +16,9 @@ Baseline at `a9a4c46`: typecheck, lint, dependency rules (106 modules) and Prett
 - [x] **T2. Fix R3 (double bottom inset).** `AppScreen` pads the bottom only with the new opt-in
       `safeAreaBottom` prop, set on `RecordFormScreen` and `OnboardingScreen`; Records has no extra
       gap. `AppScreen.test.tsx` (4 tests) checks both cases.
-- [ ] **T3. Fix R4 (record count).** Repository `count()` + real total in the Records header.
+- [x] **T3. Fix R4 (record count).** `records.count(personId, filter?)` shares the list's `WHERE`
+      predicate; the Records header shows the total, not `rows.length`. Count test (30 matches, 25
+      loaded, filters + person scoping) passes.
 - [ ] **T4. Fix R5 (tab label token).** `typography.tabLabel` token, no hard-coded size.
 - [ ] **T5. Redesign the Profile page (R1).** Two-column fact grid + full-width rows; `AppChoiceGrid`
       for blood type.

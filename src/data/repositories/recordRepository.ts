@@ -121,7 +121,8 @@ export interface RecordRepository {
   /** One page of the timeline, plus whether another page exists (ADR-024). */
   listPage(personId: string, filter: RecordFilter, limit: number, offset: number): RecordPage;
   recent(personId: string, limit?: number): RecordSummary[];
-  count(personId: string): number;
+  /** Total matches for the filters, using the same predicate as the list (ADR-024). */
+  count(personId: string, filter?: RecordFilter): number;
   /** Cascades to medications, readings, attachments and the record's measurements. */
   remove(personId: string, recordId: string): Result<true, AppError>;
 }
@@ -225,17 +226,7 @@ export function createRecordRepository(
   };
 
   const listSummaries = (personId: string, filter?: RecordFilter): RecordSummary[] => {
-    const conditions: SQL[] = [eq(record.personId, personId)];
-    if (filter?.from) conditions.push(gte(record.date, filter.from));
-    if (filter?.to) conditions.push(lte(record.date, filter.to));
-    if (filter?.kinds && filter.kinds.length > 0) {
-      conditions.push(inArray(record.kind, [...filter.kinds]));
-    }
-
-    const needle = filter?.search?.trim().toLowerCase();
-    if (needle) {
-      conditions.push(searchCondition(needle, personId));
-    }
+    const conditions = filterConditions(personId, filter);
 
     return db
       .select({
@@ -296,6 +287,27 @@ export function createRecordRepository(
         where record_fts match ${phrase} and r.person_id = ${personId}
       ) OR ${doctorMatch}
     )`;
+  };
+
+  /**
+   * The shared WHERE clauses.
+   *
+   * `count` must see exactly what the list sees, or the header would disagree with the rows
+   * (ADR-024). Limit and offset belong to the list, so they are not part of this predicate.
+   */
+  const filterConditions = (personId: string, filter?: RecordFilter): SQL[] => {
+    const conditions: SQL[] = [eq(record.personId, personId)];
+    if (filter?.from) conditions.push(gte(record.date, filter.from));
+    if (filter?.to) conditions.push(lte(record.date, filter.to));
+    if (filter?.kinds && filter.kinds.length > 0) {
+      conditions.push(inArray(record.kind, [...filter.kinds]));
+    }
+
+    const needle = filter?.search?.trim().toLowerCase();
+    if (needle) {
+      conditions.push(searchCondition(needle, personId));
+    }
+    return conditions;
   };
 
   return {
@@ -403,11 +415,11 @@ export function createRecordRepository(
 
     recent: (personId, limit = 5) => listSummaries(personId, { limit }),
 
-    count(personId) {
+    count(personId, filter) {
       const row = db
         .select({ n: sql<number>`count(*)` })
         .from(record)
-        .where(eq(record.personId, personId))
+        .where(and(...filterConditions(personId, filter)))
         .get();
       return Number(row?.n ?? 0);
     },

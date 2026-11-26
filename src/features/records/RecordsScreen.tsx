@@ -1,4 +1,4 @@
-import { useInfiniteQuery } from '@tanstack/react-query';
+import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { FlatList, StyleSheet, View } from 'react-native';
@@ -94,6 +94,16 @@ export function RecordsScreen() {
   );
   const items = useMemo(() => buildTimeline(rows), [rows]);
 
+  // The header reports every match, not just the rows loaded so far: a "25 records" label on a
+  // 200-record result would be a lie (ADR-024). The query reuses the list's own predicate.
+  const total = useQuery({
+    queryKey: ['records', id, 'count', search, kinds, period],
+    queryFn: () => requireRepositories().records.count(id, { search, kinds, ...bounds }),
+    // Keep the previous number on screen while the next one loads, instead of flickering.
+    placeholderData: (previous) => previous,
+    enabled: id !== '',
+  });
+
   const toggleKind = (kind: RecordKind) => {
     setKinds((current) =>
       current.includes(kind) ? current.filter((item) => item !== kind) : [...current, kind],
@@ -148,7 +158,9 @@ export function RecordsScreen() {
 
       <View style={styles.countRow}>
         <AppText variant="caption" color="muted" testID="records-count">
-          {records.data ? strings.records.resultCount(rows.length) : strings.common.loading}
+          {total.data !== undefined
+            ? strings.records.resultCount(total.data)
+            : strings.common.loading}
         </AppText>
       </View>
     </View>

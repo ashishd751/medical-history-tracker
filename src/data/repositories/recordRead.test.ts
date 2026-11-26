@@ -219,6 +219,41 @@ describe('recordRepository reads', () => {
     });
   });
 
+  describe('recordRepository count', () => {
+    it('counts every match for the filters, not just the loaded page', () => {
+      const fixture = createRepositoryFixture();
+      const otherPerson = fixture.addPerson('Synthetic Relative');
+      for (let index = 0; index < 30; index += 1) {
+        fixture.repos.records.create(
+          fixture.personId,
+          recordInput({
+            date: '2026-01-01',
+            kind: index % 2 === 0 ? 'lab_test' : 'doctor_visit',
+            title: `Synthetic record ${index}`,
+            symptoms: index < 10 ? ['synthetic headache'] : ['synthetic cough'],
+          }),
+        );
+      }
+      // The relative's record matches the same word: it must never inflate this person's total.
+      fixture.repos.records.create(
+        otherPerson,
+        recordInput({ date: '2026-01-02', title: 'Synthetic headache for a relative' }),
+      );
+
+      expect(fixture.repos.records.listPage(fixture.personId, {}, 25, 0).items).toHaveLength(25);
+      expect(fixture.repos.records.count(fixture.personId)).toBe(30);
+      expect(fixture.repos.records.count(otherPerson)).toBe(1);
+      expect(fixture.repos.records.count(fixture.personId, { kinds: ['lab_test'] })).toBe(15);
+      expect(fixture.repos.records.count(fixture.personId, { search: 'headache' })).toBe(10);
+      expect(fixture.repos.records.count(fixture.personId, { search: 'cough' })).toBe(20);
+      expect(fixture.repos.records.count(fixture.personId, { from: '2026-01-02' })).toBe(0);
+      expect(
+        fixture.repos.records.count(fixture.personId, { kinds: ['lab_test'], search: 'headache' }),
+      ).toBe(5);
+      fixture.close();
+    });
+  });
+
   it('counts lab readings through the person boundary', () => {
     const fixture = createRepositoryFixture();
     const otherPerson = fixture.addPerson('Synthetic Relative');

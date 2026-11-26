@@ -75,6 +75,23 @@ src/data/testing/*          node:sqlite harness used by tests only
 - Every query is person-scoped; `personId` is a required first argument, never inferred from state.
 - Deleting a record cascades to its medications, readings and attachments (foreign keys are on for
   every connection, not just the migration connection).
+- Search is an FTS5 trigram index (`record_fts`, migration v2) over the record's searchable text,
+  external-content over `record` and maintained by triggers. Three or more characters use the index;
+  shorter needles fall back to `instr` (ADR-023). `rebuildSearchIndex(db)` rebuilds it. **Never run
+  `VACUUM`** — it can renumber `record.rowid` and desynchronise the index.
+- The timeline reads through `listPage(personId, filter, limit, offset)` (`limit + 1` for `hasMore`) and
+  counts through `count(personId, filter)`; both share one filter predicate (ADR-024).
+
+## UI system
+
+- `src/ui/tokens.ts` owns colour, spacing, radius and the type scale. Features never hard-code a size;
+  the bottom tab label uses the `tabLabel` token (ADR-027).
+- `AppChoiceGrid` is the control for exclusive and multi-select choices: equal-width pills, colour-only
+  selection, keyboard dismissal (ADR-025). `AppChip` is for free-standing tags and inline actions.
+- `AppFactGrid` renders label-over-value tiles in one to three columns. Profile uses it for the six
+  person facts and, one-column, for long free text.
+- `AppScreen` pads the bottom safe area only when a screen passes `safeAreaBottom` (pinned footers on
+  routes outside the tabs). Tab screens must not pass it (ADR-026).
 
 ## Testing
 
@@ -84,3 +101,7 @@ src/data/testing/*          node:sqlite harness used by tests only
 | `data` repositories | Jest against a real in-memory SQLite database (ADR-019) |
 | Components          | React Native Testing Library                            |
 | End-to-end          | Maestro flows in `.maestro/`                            |
+
+React Native Testing Library v14 renders asynchronously: `render`, `fireEvent`, `rerender` and
+`renderHook` all return promises, so component tests must `await` them. `npm run bench:search` is a
+separate Node script (not a Jest test) because timing assertions would be flaky on CI.

@@ -38,8 +38,11 @@ Baseline at `a9a4c46`: typecheck, lint, dependency rules (106 modules) and Prett
 - [x] **T8. Debounce (R8).** `useDebouncedValue` (250 ms) now gates the search queries in the
       Records screen; an empty box applies immediately so Clear filters stays snappy. Two hook tests
       cover the delay and the restart. Maestro never types into search, so the flow is unaffected.
-- [ ] **T9. Documentation (R2).** ADR-023 to ADR-027, `PHASES.md`, `README.md`,
-      `ARCHITECTURE.md`, `AGENTS.md`, test counts.
+- [x] **T9. Documentation (R2).** ADR-023 (FTS5 trigram, benchmark, rowid/VACUUM trap),
+      ADR-024 (pagination + count; answers open question 1), ADR-025 (`AppChoiceGrid`),
+      ADR-026 (bottom safe-area rule), ADR-027 (filters, debounce, tab label, Profile). `PHASES.md`
+      (bugfix sub-list; Phase 8 pagination removed), `README.md` (status, 23 suites / 155 tests),
+      `ARCHITECTURE.md` (search index, UI system, async RNTL), `AGENTS.md` (no `VACUUM`).
 - [ ] **T10. Final gate and report.** Full gate output plus the manual device QA checklist.
 
 ## Assumptions and notes

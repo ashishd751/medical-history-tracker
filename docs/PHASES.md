@@ -35,6 +35,18 @@ approval. Never start the next phase unprompted.
 - [x] Home snapshot card, records timeline with search/filters, record detail
 - [x] Repository + migration tests; Maestro manual-create flow
 - [x] All user-facing dates render as `DD/MM/YYYY` (ADR-017); no raw `YYYY-MM-DD` visible anywhere
+- [x] Bugfix pass on `bugfix/phase-1` (see `docs/PHASE1-BUGFIX-PROGRESS.md`):
+  - [x] Records timeline pagination: 25-row pages, one month header across page boundaries (ADR-024).
+        **Phase 8 no longer needs pagination.**
+  - [x] FTS5 trigram search over records, trigger-maintained index, `rebuildSearchIndex()` (ADR-023)
+  - [x] Truthful result count in the Records header (`records.count`, same predicate as the list)
+  - [x] Tab labels: `typography.tabLabel` (15/20), one line, capped font scaling (ADR-027)
+  - [x] Filters in the list header; 250 ms search debounce (ADR-027)
+  - [x] `AppChoiceGrid` full-width choices on the form, onboarding, settings, filters and profile
+        (ADR-025)
+  - [x] `AppScreen` bottom inset only on pinned-footer screens (ADR-026)
+  - [x] Profile uses the full width: two-column fact grid plus full-width medical rows
+  - [x] Component tests, a search benchmark (`npm run bench:search`) and the docs to match
 
 ## Phase 2 — Attachments
 
@@ -75,7 +87,8 @@ approval. Never start the next phase unprompted.
 
 ## Phase 8 — Polish and release
 
-- [ ] Records table view; accessibility audit; empty/error states; dark mode
+- [ ] Records table view; accessibility audit; empty/error states; dark mode (pagination already shipped
+      in Phase 1, ADR-024)
 - [ ] Signed APK + iOS build; `docs/RELEASE.md`; no camera permission; no network calls
 - [ ] Install on a family phone using the written instructions
 

@@ -125,6 +125,7 @@ export const strings = {
     comments: 'Comments',
     followUp: 'Follow-up',
     reference: 'Reference range',
+    attachments: 'Attachments',
     deleteTitle: 'Delete this record?',
     deleteBody: 'Its medications, readings and vitals are deleted too. This cannot be undone.',
     deleteConfirm: 'Delete record',

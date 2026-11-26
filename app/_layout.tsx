@@ -3,6 +3,7 @@ import { StatusBar } from 'expo-status-bar';
 import * as SystemUI from 'expo-system-ui';
 import { useEffect } from 'react';
 import { useColorScheme, View } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { AppProviders } from '@/features/shell/AppProviders';
@@ -32,7 +33,13 @@ function ThemedNavigator() {
           headerShown: false,
           contentStyle: { backgroundColor: colors.background },
         }}
-      />
+      >
+        {/* The viewer is a modal so it can be dismissed with the same gesture as a sheet. */}
+        <Stack.Screen
+          name="attachment/[id]"
+          options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
+        />
+      </Stack>
     </View>
   );
 }
@@ -45,13 +52,15 @@ export default function RootLayout() {
   const scheme = useColorScheme() === 'dark' ? 'dark' : 'light';
 
   return (
-    <SafeAreaProvider>
-      <AppThemeProvider scheme={scheme}>
-        <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
-        <AppProviders>
-          <ThemedNavigator />
-        </AppProviders>
-      </AppThemeProvider>
-    </SafeAreaProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaProvider>
+        <AppThemeProvider scheme={scheme}>
+          <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
+          <AppProviders>
+            <ThemedNavigator />
+          </AppProviders>
+        </AppThemeProvider>
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }

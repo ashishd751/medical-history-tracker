@@ -15,3 +15,5 @@ export { AppSectionHeader, type AppSectionHeaderProps } from './AppSectionHeader
 export { AppSheet, type AppSheetProps } from './AppSheet';
 export { AppTagInput, type AppTagInputProps } from './AppTagInput';
 export { AppText, type AppTextProps } from './AppText';
+export { AppThumbnail, type AppThumbnailProps } from './AppThumbnail';
+export { AppZoomableImage, type AppZoomableImageProps } from './AppZoomableImage';

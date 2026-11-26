@@ -21,8 +21,8 @@ npm run typecheck && npm run lint && npm run deps:check && npm run format:check 
 - [x] **T4** `attachmentRepository` + `recordRepository.remove()` returns attachment paths; SQLite tests.
 - [x] **T5** Attachment service (import pipeline, save/removal ordering, compensation); tests with fakes.
 - [x] **T6** Startup sweeper (orphans, staging, rows with missing files); tests.
-- [ ] **T7** Record form sections (Prescription / Reports and other files) + draft integration.
-- [ ] **T8** Record detail gallery + zoom viewer + PDF thumbnail and Open.
+- [x] **T7** Record form sections (Prescription / Reports and other files) + draft integration.
+- [x] **T8** Record detail gallery + zoom viewer + PDF thumbnail and Open.
 - [ ] **T9** Component tests (+ Maestro flow if stable on both platforms).
 - [ ] **T10** iOS simulator and Android emulator verification of section 6 items.
 - [ ] **T11** Docs: ADR-030 onward, `PHASES.md`, `README.md`, `ARCHITECTURE.md`, `.maestro/README.md`.

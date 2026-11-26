@@ -15,7 +15,7 @@ npm run typecheck && npm run lint && npm run deps:check && npm run format:check 
 ## Checklist
 
 - [x] **T0** Branch, this file, baseline gate (expect 27 suites / 162 tests).
-- [ ] **T1** `src/platform/` ports + Expo implementations + fakes; dependency rule proven.
+- [x] **T1** `src/platform/` ports + Expo implementations + fakes; dependency rule proven.
 - [ ] **T2** Domain helpers: paths, mime/extension, limits, strings; unit tests.
 - [ ] **T3** `src/data/fileStore.ts` over an injected file-system port; tests with the in-memory fake.
 - [ ] **T4** `attachmentRepository` + `recordRepository.remove()` returns attachment paths; SQLite tests.
@@ -30,9 +30,10 @@ npm run typecheck && npm run lint && npm run deps:check && npm run format:check 
 
 ## Evidence log
 
-| Task | Evidence                                                                             |
-| ---- | ------------------------------------------------------------------------------------ |
-| T0   | `git checkout -b feat/phase-2-attachments` from `afe7bed`; baseline gate: see below. |
+| Task | Evidence                                                                                                                                                                                                                                                                                                                                                                     |
+| ---- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| T0   | `git checkout -b feat/phase-2-attachments` from `afe7bed`; baseline gate: see below.                                                                                                                                                                                                                                                                                         |
+| T1   | `src/platform/{pickerTypes,imageLibraryPicker,documentPicker,imageProcessor,pdfThumbnail,fileSharer,index}.ts` + `testing/fakes.ts`. Rule probe: a temporary `src/platform/__ruleProbe.ts` importing `../data` failed `deps:check` with `error platform-imports-domain-only`; after deleting it, `✔ no dependency violations found (127 modules, 291 dependencies cruised)`. |
 
 ### T0 baseline gate
 

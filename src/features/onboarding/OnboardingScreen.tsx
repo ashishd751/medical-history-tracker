@@ -167,6 +167,7 @@ export function OnboardingScreen() {
       title={strings.onboarding.welcome}
       eyebrow={strings.onboarding.stepLabel(step + 1, TOTAL_STEPS)}
       scroll={false}
+      safeAreaBottom
       testID="screen-onboarding"
     >
       <View style={styles.body}>

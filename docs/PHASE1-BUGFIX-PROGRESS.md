@@ -13,7 +13,9 @@ Baseline at `a9a4c46`: typecheck, lint, dependency rules (106 modules) and Prett
 ## Checklist
 
 - [x] **T1. Progress file and baseline.** Gate re-run at `a9a4c46`: 17 suites / 125 tests pass.
-- [ ] **T2. Fix R3 (double bottom inset).** `AppScreen` bottom inset becomes opt-in.
+- [x] **T2. Fix R3 (double bottom inset).** `AppScreen` pads the bottom only with the new opt-in
+      `safeAreaBottom` prop, set on `RecordFormScreen` and `OnboardingScreen`; Records has no extra
+      gap. `AppScreen.test.tsx` (4 tests) checks both cases.
 - [ ] **T3. Fix R4 (record count).** Repository `count()` + real total in the Records header.
 - [ ] **T4. Fix R5 (tab label token).** `typography.tabLabel` token, no hard-coded size.
 - [ ] **T5. Redesign the Profile page (R1).** Two-column fact grid + full-width rows; `AppChoiceGrid`

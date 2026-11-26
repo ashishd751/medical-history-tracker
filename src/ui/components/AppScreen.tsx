@@ -12,6 +12,14 @@ export interface AppScreenProps {
   children: ReactNode;
   /** Defaults to true. Forms that pin a footer set this to false. */
   scroll?: boolean;
+  /**
+   * Pads the screen's bottom edge with the safe-area inset. Defaults to false.
+   *
+   * Only screens outside the tab navigator that pin a footer to the bottom need this (ADR-026):
+   * tab screens already sit above a tab bar that clears the home indicator, so padding again
+   * would leave a double gap.
+   */
+  safeAreaBottom?: boolean;
   onBack?: (() => void) | undefined;
   right?: ReactNode;
   eyebrow?: string | undefined;
@@ -28,6 +36,7 @@ export function AppScreen({
   title,
   children,
   scroll = true,
+  safeAreaBottom = false,
   onBack,
   right,
   eyebrow,
@@ -69,9 +78,10 @@ export function AppScreen({
         {
           backgroundColor: colors.background,
           paddingTop: insets.top + spacing.md,
-          // Screens with a pinned footer (forms, onboarding) must clear the home indicator, or the
-          // footer button sits half under it.
-          paddingBottom: scroll ? 0 : insets.bottom,
+          // Screens with a pinned footer (forms, onboarding) opt in: their footer must clear the
+          // home indicator, or the button sits half under it. Scrollable content keeps its own
+          // bottom padding below, so a tab screen is never padded twice (ADR-026).
+          paddingBottom: !scroll && safeAreaBottom ? insets.bottom : 0,
         },
       ]}
     >

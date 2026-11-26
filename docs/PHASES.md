@@ -47,6 +47,7 @@ approval. Never start the next phase unprompted.
   - [x] `AppScreen` bottom inset only on pinned-footer screens (ADR-026)
   - [x] Profile uses the full width: two-column fact grid plus full-width medical rows
   - [x] Component tests, a search benchmark (`npm run bench:search`) and the docs to match
+  - [x] Follow-up review: Home snapshot grid, record-title hierarchy, dialog radius (ADR-028)
 
 ## Phase 2 — Attachments
 

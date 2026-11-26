@@ -655,3 +655,40 @@ first three; this ADR records the rules so later screens stay consistent.
   emulator at 360 dp and 1.3× font: all four labels stay on one line in five even slots.
 - The Profile test asserts the tile ids, the DD/MM/YYYY date, metric units, the BMI value and the
   four-column blood-type grid, so a layout regression fails CI even though CI cannot see pixels.
+
+---
+
+## ADR-028 Dialogs pin their own radius, and record rows lead with the title
+
+**Context.** A follow-up review of the running app (iOS and Android) found three visual inconsistencies:
+
+- The Home snapshot's four vitals had no shared column width, so each row of two facts clustered to the
+  left and the card looked half empty.
+- On Home and the Records timeline the record type badge read at least as large as the record title: a
+  13 pt semibold caption on a filled pill next to a 14 pt semibold title.
+- The unsaved-changes dialog had enormous corners, with the title and the destructive action sitting
+  almost against the curve. Paper's Material 3 `Dialog` computes its radius as **7 ×
+  `theme.roundness`**; our theme uses the 12 pt card token as roundness, so the dialog was 84 pt.
+
+**Decision.**
+
+- `SnapshotCard` renders its four vitals through `AppFactGrid` (two columns), the same primitive as the
+  Profile page. Facts share the width evenly, the values use the Profile type scale, and the
+  large-text one-column rule (ADR-027) applies to Home too. The Last BP block stays a full-width block
+  of its own.
+- `AppListRow` gives the title `body` (16/24) semibold; the type badge stays a `caption` (13) semibold
+  pill. The title is the subject of the row and the badge is metadata, so the hierarchy is now explicit.
+- `AppDialog` pins `borderRadius: radius.card` (12) on the dialog surface, overriding Paper's 7×
+  multiple. Theme roundness stays at the card radius because other Paper surfaces depend on it.
+
+**Consequences.**
+
+- Home and Profile share one fact-grid primitive; a layout change lands in one file.
+- List rows are a little taller because the title uses the 24 pt body line height. The accessible
+  label and the Maestro text assertions are unchanged.
+- Any future Paper component that multiplies `theme.roundness` can produce an unexpected radius. Check
+  the rendered value and pin the token explicitly, as `AppDialog` does.
+- Tests guard the two regressions: `SnapshotCard.test.tsx` asserts four 50% cells at normal text size,
+  and `AppListRow.test.tsx` asserts a 16 pt semibold title beside a 13 pt badge. The dialog radius is
+  verified on the simulator and emulator (a Paper-internal style is not reachable from a unit test
+  without asserting implementation details).

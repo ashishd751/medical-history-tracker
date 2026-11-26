@@ -44,8 +44,8 @@ Baseline at `a9a4c46`: typecheck, lint, dependency rules (106 modules) and Prett
       (bugfix sub-list; Phase 8 pagination removed), `README.md` (status, 23 suites / 155 tests),
       `ARCHITECTURE.md` (search index, UI system, async RNTL), `AGENTS.md` (no `VACUUM`).
 - [x] **T10. Final gate and report.** Final gate green on this tree: typecheck, lint, dependency rules
-      (115 modules), Prettier, **24 suites / 159 tests** after the device-QA fixes below. Nothing was
-      pushed.
+      (116 modules), Prettier, **26 suites / 161 tests** after the device-QA and follow-up-review fixes
+      below. Nothing was pushed.
 
 ## Device QA — 26 Nov 2026
 
@@ -92,6 +92,26 @@ returned to their previous settings (iOS dark + Large text; Android density 420,
 - At accessibility XL the record-row kind badge wraps inside its pill and a long title ellipsises. That
   is the pre-existing `AppListRow` / `AppBadge` design, untouched by this pass; noted for the Phase 8
   accessibility audit.
+
+## Follow-up review fixes — 26 Nov 2026
+
+A second review of the running app found three visual issues. All three were reproduced on the iPhone 18
+Pro simulator (dark) and the Pixel 10 emulator (light), fixed, and re-checked on both.
+
+1. **Home snapshot vitals did not fill the card width.** Each metric was content-width with a 96 pt
+   minimum, so two facts clustered on the left of each row. `SnapshotCard` now uses `AppFactGrid`
+   (two columns), the same primitive as Profile, so Height | Weight and BMI | Blood type share the
+   width evenly; the Last BP block stays full width. Commit `1bd3f1a`.
+2. **Record type badge looked larger than the record title** on Home and Records (13 pt bold on a filled
+   pill next to a 14 pt title). `AppListRow` titles are now 16 pt semibold `body`; the badge stays a
+   13 pt caption. Commit `5d3763c`.
+3. **Unsaved-changes dialog corners were huge** and the title/action nearly touched them. Paper
+   computes an MD3 dialog radius as 7 × `theme.roundness`; our roundness token is 12, so the dialog was
+   84 pt. `AppDialog` now pins `borderRadius: radius.card`. Commit `44bbb8c`.
+
+Regression tests: `SnapshotCard.test.tsx` (four 50% cells at normal text) and `AppListRow.test.tsx`
+(16 pt semibold title beside a 13 pt badge). The dialog radius was verified visually on both devices.
+The user's existing simulator records were preserved; only the two synthetic QA rows were removed.
 
 ## Assumptions and notes
 

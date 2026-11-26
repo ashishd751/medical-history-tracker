@@ -120,3 +120,9 @@ doctor      20/20 checks passed
   they are invented images and could not be removed without a GUI.
 - No device setting (font scale, density, appearance) was changed. The Android app was re-launched
   and the iOS app terminated.
+
+## Testing guide
+
+The Phase 1 QA guide that lived in git-ignored `private-samples/` was deleted and replaced by a
+sanitised `docs/TESTING.md` (toolchain, fixtures, device commands, the Phase 2 manual checklist,
+storage inspection, cleanup). `private-samples/` now holds samples only.

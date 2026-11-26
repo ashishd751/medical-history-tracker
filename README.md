@@ -40,14 +40,15 @@ CI runs the same set on every push (`.github/workflows/ci.yml`).
 
 ## Documentation
 
-| File                   | What it covers                                    |
-| ---------------------- | ------------------------------------------------- |
-| `AGENTS.md`            | Rules for contributors and AI agents              |
-| `docs/ARCHITECTURE.md` | Layers, dependency rules, data invariants         |
-| `docs/DECISIONS.md`    | ADRs for every non-obvious choice                 |
-| `docs/PHASES.md`       | Phase plan and checklist                          |
-| `docs/PRIVACY.md`      | What is stored, where, and what leaves the device |
-| `docs/PHASE0-ENV.md`   | Verified toolchain versions                       |
+| File                   | What it covers                                     |
+| ---------------------- | -------------------------------------------------- |
+| `AGENTS.md`            | Rules for contributors and AI agents               |
+| `docs/ARCHITECTURE.md` | Layers, dependency rules, data invariants          |
+| `docs/DECISIONS.md`    | ADRs for every non-obvious choice                  |
+| `docs/PHASES.md`       | Phase plan and checklist                           |
+| `docs/PRIVACY.md`      | What is stored, where, and what leaves the device  |
+| `docs/PHASE0-ENV.md`   | Verified toolchain versions                        |
+| `docs/TESTING.md`      | Manual test scripts for the simulator and emulator |
 
 ## Not committed, ever
 

@@ -595,12 +595,19 @@ the inset an explicit opt-in prop; (c) drop the inset and let footers use their 
 Only two screens opt in today: `RecordFormScreen` and `OnboardingScreen` — both full-screen routes
 outside the tab navigator with a button pinned to the bottom. Records, Home, Profile and Settings do not.
 
+Opt-in screens also wrap their body in a `KeyboardAvoidingView` (`behavior="padding"`), so a pinned
+footer clears the **software keyboard**, not just the home indicator. Device QA found Save completely
+hidden behind the Android keyboard: with edge-to-edge the window no longer resizes, so the footer has
+to be lifted explicitly.
+
 **Consequences.**
 
 - A new full-screen route with a pinned footer must set `safeAreaBottom`; forgetting it puts the footer
   under the gesture bar, which is visible immediately on QA.
 - A tab screen must never set it. `AppScreen.test.tsx` asserts default 0, the opt-in value at 34 pt, and
   that the opt-in is ignored while scrolling.
+- The same test asserts the keyboard-avoiding wrapper exists only for opt-in screens, so a future
+  `safeAreaBottom` screen cannot silently lose it.
 - The rule is structural rather than a per-screen height guess, so devices with no home indicator
   (inset 0) need no special case.
 
@@ -630,6 +637,8 @@ first three; this ADR records the rules so later screens stay consistent.
   muted above, value in `subtitle` below) for Date of birth | Sex, Blood type | BMI (+ category badge),
   Height | Weight, with a hairline divider and two full-width rows for Allergies and Chronic conditions.
   The same grid is used one-column for long text and is the same visual language as the Home snapshot.
+  At OS font scales of 1.5 or more it collapses to one column (`useWindowDimensions().fontScale`),
+  because two columns wrapped a `DD/MM/YYYY` date mid-string on the iOS simulator at accessibility XL.
   The edit sheet uses `AppChoiceGrid` for blood type (ADR-025).
 
 **Consequences.**
@@ -642,6 +651,7 @@ first three; this ADR records the rules so later screens stay consistent.
   badge or other accessory is passed as `accessory`.
 - Capping tab-label scaling is a small accessibility trade-off (labels scale to 120%, not 200%). The
   alternative — truncating "Settings" — hides the destination entirely, and the tab has an
-  `accessibilityLabel` and `accessibilityRole="tab"` for assistive technology.
+  `accessibilityLabel` and `accessibilityRole="tab"` for assistive technology. Verified on the Android
+  emulator at 360 dp and 1.3× font: all four labels stay on one line in five even slots.
 - The Profile test asserts the tile ids, the DD/MM/YYYY date, metric units, the BMI value and the
   four-column blood-type grid, so a layout regression fails CI even though CI cannot see pixels.

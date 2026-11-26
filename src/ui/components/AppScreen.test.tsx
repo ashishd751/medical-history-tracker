@@ -44,4 +44,16 @@ describe('AppScreen bottom inset', () => {
     await renderScreen({ safeAreaBottom: true });
     expect(screen.getByTestId('screen')).toHaveStyle({ paddingBottom: 0 });
   });
+
+  it('wraps a pinned footer in a keyboard-avoiding view', async () => {
+    await renderScreen({ scroll: false, safeAreaBottom: true });
+    expect(screen.getByTestId('keyboard-avoiding')).toBeTruthy();
+  });
+
+  it('does not add keyboard avoidance to a screen without a pinned footer', async () => {
+    await renderScreen();
+    expect(screen.queryByTestId('keyboard-avoiding')).toBeNull();
+    await renderScreen({ scroll: false });
+    expect(screen.queryByTestId('keyboard-avoiding')).toBeNull();
+  });
 });

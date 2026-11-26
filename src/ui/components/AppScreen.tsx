@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { KeyboardAvoidingView, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useAppTheme } from '../ThemeProvider';
@@ -70,6 +70,17 @@ export function AppScreen({
     </View>
   );
 
+  const body = scroll ? (
+    <ScrollView
+      contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + spacing.xxl }]}
+      keyboardShouldPersistTaps="handled"
+    >
+      {children}
+    </ScrollView>
+  ) : (
+    <View style={[styles.flex, styles.content]}>{children}</View>
+  );
+
   return (
     <View
       testID={testID}
@@ -86,15 +97,14 @@ export function AppScreen({
       ]}
     >
       {header}
-      {scroll ? (
-        <ScrollView
-          contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + spacing.xxl }]}
-          keyboardShouldPersistTaps="handled"
-        >
-          {children}
-        </ScrollView>
+      {safeAreaBottom && !scroll ? (
+        // A pinned footer must also clear the software keyboard, not just the home indicator.
+        // Without this the Save button sat behind the keyboard on Android (device QA, ADR-026).
+        <KeyboardAvoidingView testID="keyboard-avoiding" style={styles.flex} behavior="padding">
+          {body}
+        </KeyboardAvoidingView>
       ) : (
-        <View style={[styles.flex, styles.content]}>{children}</View>
+        body
       )}
     </View>
   );

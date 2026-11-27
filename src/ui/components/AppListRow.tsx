@@ -29,13 +29,18 @@ export function AppListRow({
 }: AppListRowProps) {
   const { colors } = useAppTheme();
 
+  // One label for the whole row: the inner texts are hidden from a screen reader as soon as the
+  // Pressable is accessible, so the value, its date and where it came from must be repeated here
+  // (otherwise VoiceOver reads "70 kg" and nothing else).
+  const label = [title, subtitle, meta].filter(Boolean).join(', ');
+
   return (
     <Pressable
       testID={testID}
       onPress={onPress}
       disabled={!onPress}
       accessibilityRole={onPress ? 'button' : undefined}
-      accessibilityLabel={title}
+      accessibilityLabel={label}
       accessibilityHint={accessibilityHint}
       style={({ pressed }) => [
         styles.row,
@@ -51,7 +56,7 @@ export function AppListRow({
           {title}
         </AppText>
         {subtitle ? (
-          <AppText variant="caption" color="muted" numberOfLines={2}>
+          <AppText variant="caption" color="muted" numberOfLines={3}>
             {subtitle}
           </AppText>
         ) : null}

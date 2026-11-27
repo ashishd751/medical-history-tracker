@@ -65,7 +65,10 @@ export function AppChoiceGrid<T extends string>({
               <AppText
                 variant="label"
                 align="center"
-                numberOfLines={1}
+                // Two lines, not one: at the largest accessibility text size a four-column grid
+                // leaves about nine characters per pill, and truncating "Height" to "H…" makes the
+                // choices unreadable (ADR-042).
+                numberOfLines={2}
                 style={{ color: isSelected ? colors.onPrimary : colors.text }}
               >
                 {option.label}

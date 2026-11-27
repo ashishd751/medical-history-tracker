@@ -3,7 +3,15 @@ import { StyleSheet, View } from 'react-native';
 import type { MeasurementRow } from '@/data';
 import type { UnitSystem } from '@/domain';
 import { formatDisplayDate } from '@/lib/dates';
-import { AppButton, AppListRow, AppText, formatMeasurement, spacing, strings } from '@/ui';
+import {
+  AppBadge,
+  AppButton,
+  AppListRow,
+  AppText,
+  formatMeasurement,
+  spacing,
+  strings,
+} from '@/ui';
 
 export interface MeasurementHistoryProps {
   rows: readonly MeasurementRow[];
@@ -44,7 +52,15 @@ export function MeasurementHistory({
           <AppListRow
             key={row.id}
             title={formatMeasurement(row.kind, row.v1, row.v2, unitSystem)}
-            subtitle={row.profileExcluded ? `${source} · ${strings.profile.notCounted}` : source}
+            subtitle={source}
+            // A flagged row is marked with a badge rather than a longer subtitle: at the largest
+            // accessibility text size a subtitle beside a date and a Delete button has no room to
+            // wrap, and truncating it would hide why the value is missing from the profile.
+            badge={
+              row.profileExcluded ? (
+                <AppBadge label={strings.profile.notCounted} tone="warning" />
+              ) : undefined
+            }
             meta={formatDisplayDate(row.measuredOn)}
             accessibilityHint={recordId ? strings.profile.openRecordHint : undefined}
             onPress={recordId ? () => onOpenRecord(recordId) : undefined}

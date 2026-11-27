@@ -32,9 +32,10 @@ export function AppSheet({ visible, onDismiss, title, children, testID }: AppShe
     >
       <KeyboardAvoidingView
         style={styles.root}
-        // A sheet with text fields must rise above the software keyboard, or the Save button sits
-        // behind it (ADR-042). Android's window already resizes, so only iOS needs padding.
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        // A sheet with text fields must rise above the software keyboard, or its primary button
+        // sits behind it (ADR-042). iOS pads the sheet up; Android's Modal window does not resize
+        // with the keyboard, so it is shrunk instead.
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
         <Pressable
           style={styles.backdrop}

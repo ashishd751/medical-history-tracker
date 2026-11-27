@@ -59,7 +59,7 @@ export function AppDialog({
             </AppText>
           </Dialog.Content>
         ) : null}
-        <Dialog.Actions style={{ gap: 4 }}>
+        <Dialog.Actions style={{ gap: 4, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
           {cancelLabel ? (
             <AppButton label={cancelLabel} variant="quiet" onPress={onCancel} />
           ) : null}

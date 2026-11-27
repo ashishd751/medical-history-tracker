@@ -118,6 +118,10 @@ export function ProfileScreen() {
     // The comparison is against the *stored* value: that is what is recorded, and a draft edit
     // has not been saved yet (ADR-044).
     if (requiresBloodTypeConfirmation(record.bloodType, next)) {
+      // A Paper dialog renders into the app's window, which this sheet's own Modal covers, so the
+      // question would be invisible underneath it. Ask with the sheet out of the way, then reopen
+      // it — every other field in the draft is screen state and survives (ADR-046).
+      setEditing(false);
       setBloodTypePending({ next });
       return;
     }
@@ -245,12 +249,7 @@ export function ProfileScreen() {
   }));
 
   return (
-    <AppScreen
-      title={record.name}
-      eyebrow={strings.profile.title}
-      right={<AppButton label={strings.profile.editProfile} variant="quiet" onPress={openEditor} />}
-      testID="screen-profile"
-    >
+    <AppScreen title={record.name} eyebrow={strings.profile.title} testID="screen-profile">
       {banner ? <AppBanner tone="success" message={banner} testID="profile-banner" /> : null}
       {error && !editing ? (
         <AppBanner tone="danger" message={error} testID="profile-error" />
@@ -261,6 +260,17 @@ export function ProfileScreen() {
         <View style={[styles.divider, { borderTopColor: colors.border }]} />
         <AppFactGrid facts={medicalFacts} columns={1} />
       </AppCard>
+
+      {/* In the body rather than the header: the header's top-right corner is where the dev client
+          draws its floating menu button, and tapping Edit there opened the dev menu instead
+          (ADR-046). RecordDetailScreen made the same move in Phase 2. */}
+      <AppButton
+        label={strings.profile.editProfile}
+        variant="secondary"
+        onPress={openEditor}
+        fullWidth
+        testID="edit-profile"
+      />
 
       <AppText variant="caption" color="muted">
         {strings.profile.historyHint}
@@ -362,8 +372,12 @@ export function ProfileScreen() {
         onConfirm={() => {
           setBloodType(bloodTypePending?.next ?? null);
           setBloodTypePending(null);
+          setEditing(true);
         }}
-        onCancel={() => setBloodTypePending(null)}
+        onCancel={() => {
+          setBloodTypePending(null);
+          setEditing(true);
+        }}
         testID="blood-type-dialog"
       />
     </AppScreen>

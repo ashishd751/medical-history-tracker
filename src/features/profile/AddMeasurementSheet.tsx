@@ -146,7 +146,7 @@ export function AddMeasurementSheet({
       </AppText>
 
       <AppButton
-        label={strings.common.add}
+        label={strings.common.save}
         onPress={save}
         fullWidth
         testID="add-measurement-save"

@@ -26,7 +26,7 @@ npm run typecheck && npm run lint && npm run deps:check && npm run format:check 
 - [x] **T4** "Profile updated" sheet, transient store, shell host, Undo behaviour. Component tests.
 - [x] **T5** Blood-type confirmation dialog, wired into the Profile edit sheet. Tests.
 - [x] **T6** Profile screen: measurement history, trend, add and delete standalone measurements. Tests.
-- [ ] **T7** Home consistency from the same snapshot source. Tests.
+- [x] **T7** Home consistency from the same snapshot source. Tests.
 - [ ] **T8** Maestro flows (weight change → sheet → Undo; backdated → no sheet) if stable on both.
 - [ ] **T9** Verification on the iOS simulator **and** the Android emulator (section 6 of the handoff).
 - [ ] **T10** Docs: ADR-038 onward, `PHASES.md`, `README.md`, `ARCHITECTURE.md`, `TESTING.md`,
@@ -44,6 +44,7 @@ npm run typecheck && npm run lint && npm run deps:check && npm run format:check 
 | T4   | `src/ui/components/AppChangeList.tsx`, `src/features/shell/ProfileChangeHost.tsx` (hosted once in `app/_layout.tsx` above the navigator). `npx jest src/features/shell` → 6 passed (empty, old→new rows, undo + confirmation + refresh, failed undo, edit note, delete note). Full gate: `41 suites / 280 tests`, `✔ no dependency violations found (164 modules, 400 dependencies cruised)`.                                                                                                                       |
 | T5   | `src/ui/components/AppBloodTypeDialog.tsx` (reusable; the domain decides _whether_ to ask), wired into the Profile edit sheet against the stored value. `npx jest src/ui/components/AppBloodTypeDialog.test.tsx src/features/profile` → 3 + 5 passed (change wording, clear wording, confirm/cancel, ask-then-cancel keeps O+, confirm applies, first-time set silent). Full gate: `42 suites / 286 tests`, `✔ no dependency violations found (166 modules, 406 dependencies cruised)`.                             |
 | T6   | `MeasurementHistory.tsx`, `MeasurementTrend.tsx` (plain Views, no chart dependency), `AddMeasurementSheet.tsx`, `measurementInput.ts` (metric conversion + plausibility ranges), `ProfileScreen` rewritten over `profile.snapshot` + `measurements.listByKind`. `AppSheet` now rises above the keyboard (`KeyboardAvoidingView`, ADR-042). `npx jest src/features/profile` → `2 suites / 28 tests`. Full gate: `43 suites / 309 tests`, `✔ no dependency violations found (171 modules, 420 dependencies cruised)`. |
+| T7   | `HomeScreen` now reads `profile.snapshot` for the card _and_ the medication chips (the old `latestVitals` / `listCurrent` queries are gone). `src/features/home/HomeScreen.test.tsx` fails if Home touches those directly. `npx jest src/features/home` → 3 passed. Full gate: `44 suites / 311 tests`, `✔ no dependency violations found (172 modules, 423 dependencies cruised)`.                                                                                                                                 |
 
 ### T0 baseline gate output
 

@@ -1,16 +1,17 @@
 import { useQuery } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useRouter } from 'expo-router';
+import { useMemo, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
-import { requireRepositories } from '@/data';
+import { type MeasurementRow, requireRepositories } from '@/data';
 import {
   BLOOD_TYPES,
   type BloodType,
-  bmiCategory,
-  computeBmi,
+  MEASUREMENT_KINDS,
+  type MeasurementKind,
   requiresBloodTypeConfirmation,
 } from '@/domain';
-import { formatDisplayDate, isValidIsoDate } from '@/lib/dates';
+import { formatDisplayDate, isValidIsoDate, todayIso } from '@/lib/dates';
 import { useSession } from '@/lib/session';
 import {
   AppBadge,
@@ -20,41 +21,68 @@ import {
   AppCard,
   AppChoiceGrid,
   AppDateField,
+  AppDialog,
   AppEmptyState,
   type AppFact,
   AppFactGrid,
   AppField,
   AppScreen,
+  AppSectionHeader,
   AppSheet,
   AppText,
   bloodTypeLabel,
   bmiCategoryLabel,
   formatBmi,
   formatHeight,
+  formatMeasurement,
   formatWeight,
+  measurementKindLabel,
   sexLabel,
   spacing,
   strings,
   useAppTheme,
 } from '@/ui';
 
+import { AddMeasurementSheet } from './AddMeasurementSheet';
+import { MeasurementHistory } from './MeasurementHistory';
+import { type MeasurementSubmission } from './measurementInput';
+import { MeasurementTrend } from './MeasurementTrend';
+
+/** How many rows of one kind the history shows: enough to see a trend, not a scroll marathon. */
+const HISTORY_LIMIT = 20;
+
 /**
- * Read-only profile with an inline edit sheet. Measurement history and profile sync are
- * Phase 3; this shows the derived snapshot and the facts stored on the person row.
+ * The profile: the facts stored on the person row, the derived snapshot and the measurement
+ * history.
+ *
+ * Height, weight, BMI and current medication come from the same `profile.snapshot` query Home uses,
+ * so the two screens cannot disagree (ADR-038). A blood type that is already recorded is never
+ * replaced without confirmation (ADR-044), and a measurement that came from a record is edited
+ * there rather than here (ADR-045).
  */
 export function ProfileScreen() {
   const { personId, unitSystem, bmiPreset, refresh } = useSession();
   const { colors } = useAppTheme();
+  const router = useRouter();
   const id = personId ?? '';
+
+  // Read once: a query key that changes as the clock ticks would refetch for no reason.
+  const today = useMemo(() => todayIso(), []);
 
   const person = useQuery({
     queryKey: ['person', id],
     queryFn: () => requireRepositories().people.getById(id),
     enabled: id !== '',
   });
-  const vitals = useQuery({
-    queryKey: ['vitals', id],
-    queryFn: () => requireRepositories().measurements.latestVitals(id),
+  const profile = useQuery({
+    queryKey: ['profile', id, today, bmiPreset],
+    queryFn: () => requireRepositories().profile.snapshot(id, { today, bmiPreset }),
+    enabled: id !== '',
+  });
+  const [historyKind, setHistoryKind] = useState<MeasurementKind>('weight');
+  const history = useQuery({
+    queryKey: ['measurements', id, historyKind, HISTORY_LIMIT],
+    queryFn: () => requireRepositories().measurements.listByKind(id, historyKind, HISTORY_LIMIT),
     enabled: id !== '',
   });
 
@@ -65,11 +93,24 @@ export function ProfileScreen() {
   const [allergies, setAllergies] = useState('');
   const [chronic, setChronic] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const [saved, setSaved] = useState(false);
+  const [banner, setBanner] = useState<string | null>(null);
   /** Set while a change to an already-recorded blood type waits for confirmation. */
   const [bloodTypePending, setBloodTypePending] = useState<{ next: BloodType | null } | null>(null);
+  const [addOpen, setAddOpen] = useState(false);
+  const [pendingDelete, setPendingDelete] = useState<MeasurementRow | null>(null);
 
   const record = person.data;
+
+  const openEditor = () => {
+    if (!record) return;
+    setName(record.name);
+    setDob(record.dob);
+    setBloodType(record.bloodType);
+    setAllergies(record.allergies ?? '');
+    setChronic(record.chronicConditions ?? '');
+    setError(null);
+    setEditing(true);
+  };
 
   const chooseBloodType = (type: BloodType) => {
     if (!record) return;
@@ -81,17 +122,6 @@ export function ProfileScreen() {
       return;
     }
     setBloodType(next);
-  };
-
-  const openEditor = () => {
-    if (!record) return;
-    setName(record.name);
-    setDob(record.dob);
-    setBloodType(record.bloodType);
-    setAllergies(record.allergies ?? '');
-    setChronic(record.chronicConditions ?? '');
-    setError(null);
-    setEditing(true);
   };
 
   const save = () => {
@@ -112,7 +142,34 @@ export function ProfileScreen() {
       return;
     }
     setEditing(false);
-    setSaved(true);
+    setBanner(strings.profile.saved);
+    refresh();
+  };
+
+  const addMeasurement = (submission: MeasurementSubmission) => {
+    setAddOpen(false);
+    const result = requireRepositories().measurements.create(id, submission);
+    if (!result.ok) {
+      setBanner(null);
+      setError(strings.errors.db);
+      return;
+    }
+    setError(null);
+    setBanner(strings.profile.measurementSaved);
+    refresh();
+  };
+
+  const deleteMeasurement = () => {
+    if (!pendingDelete) return;
+    // Only standalone rows reach here; a record's value is deleted with the record.
+    const result = requireRepositories().measurements.remove(id, pendingDelete.id);
+    setPendingDelete(null);
+    if (!result.ok) {
+      setError(strings.errors.db);
+      return;
+    }
+    setError(null);
+    setBanner(strings.profile.measurementDeleted);
     refresh();
   };
 
@@ -124,9 +181,8 @@ export function ProfileScreen() {
     );
   }
 
-  const height = vitals.data?.height;
-  const weight = vitals.data?.weight;
-  const bmi = height && weight ? computeBmi(height.v1, weight.v1) : null;
+  const snapshot = profile.data ?? null;
+  const rows = history.data ?? [];
 
   // Six short facts in two columns use the whole card width; long free text goes full width below.
   const facts: AppFact[] = [
@@ -134,26 +190,32 @@ export function ProfileScreen() {
     { label: strings.profile.sex, value: sexLabel(record.sex), testID: 'profile-sex' },
     {
       label: strings.home.bloodType,
-      value: bloodTypeLabel(record.bloodType),
+      value: bloodTypeLabel(snapshot?.bloodType ?? null),
       testID: 'profile-blood-type',
     },
     {
       label: strings.home.bmi,
-      value: bmi !== null ? formatBmi(bmi) : '—',
+      value: snapshot?.bmi === null || snapshot?.bmi === undefined ? '—' : formatBmi(snapshot.bmi),
       accessory:
-        bmi !== null ? (
-          <AppBadge label={bmiCategoryLabel(bmiCategory(bmi, bmiPreset))} tone="info" />
-        ) : undefined,
+        snapshot?.bmiCategory === null || snapshot?.bmiCategory === undefined ? undefined : (
+          <AppBadge label={bmiCategoryLabel(snapshot.bmiCategory)} tone="info" />
+        ),
       testID: 'profile-bmi',
     },
     {
       label: strings.home.height,
-      value: height ? formatHeight(height.v1, unitSystem) : '—',
+      value:
+        snapshot?.heightCm === null || snapshot?.heightCm === undefined
+          ? '—'
+          : formatHeight(snapshot.heightCm, unitSystem),
       testID: 'profile-height',
     },
     {
       label: strings.home.weight,
-      value: weight ? formatWeight(weight.v1, unitSystem) : '—',
+      value:
+        snapshot?.weightKg === null || snapshot?.weightKg === undefined
+          ? '—'
+          : formatWeight(snapshot.weightKg, unitSystem),
       testID: 'profile-weight',
     },
   ];
@@ -171,6 +233,17 @@ export function ProfileScreen() {
     },
   ];
 
+  // The trend reads oldest → newest, so it grows in the direction time does.
+  const trendPoints = [...rows].reverse().map((row) => ({
+    value: row.v1,
+    label: `${formatDisplayDate(row.measuredOn)}: ${formatMeasurement(
+      row.kind,
+      row.v1,
+      row.v2,
+      unitSystem,
+    )}`,
+  }));
+
   return (
     <AppScreen
       title={record.name}
@@ -178,11 +251,14 @@ export function ProfileScreen() {
       right={<AppButton label={strings.profile.editProfile} variant="quiet" onPress={openEditor} />}
       testID="screen-profile"
     >
-      {saved ? <AppBanner tone="success" message={strings.profile.saved} /> : null}
+      {banner ? <AppBanner tone="success" message={banner} testID="profile-banner" /> : null}
+      {error && !editing ? (
+        <AppBanner tone="danger" message={error} testID="profile-error" />
+      ) : null}
 
       <AppCard>
         <AppFactGrid facts={facts} columns={2} />
-        <View style={[styles.divider, { backgroundColor: colors.border }]} />
+        <View style={[styles.divider, { borderTopColor: colors.border }]} />
         <AppFactGrid facts={medicalFacts} columns={1} />
       </AppCard>
 
@@ -192,6 +268,35 @@ export function ProfileScreen() {
       <AppText variant="caption" color="muted">
         {strings.app.disclaimer}
       </AppText>
+
+      <AppSectionHeader
+        title={strings.profile.measurementHistory}
+        actionLabel={strings.profile.addMeasurement}
+        onAction={() => setAddOpen(true)}
+        testID="measurement-history-header"
+      />
+      <AppChoiceGrid
+        options={MEASUREMENT_KINDS.map((kind) => ({
+          value: kind,
+          label: strings.profile.historyKinds[kind],
+        }))}
+        selected={historyKind}
+        onSelect={setHistoryKind}
+        columns={4}
+        testIDPrefix="history-kind"
+      />
+      <MeasurementTrend
+        points={trendPoints}
+        caption={`${strings.profile.trend} · ${measurementKindLabel(historyKind)}`}
+        testID="measurement-trend"
+      />
+      <MeasurementHistory
+        rows={rows}
+        unitSystem={unitSystem}
+        onOpenRecord={(recordId) => router.push(`/record/${recordId}`)}
+        onDelete={setPendingDelete}
+        testID="measurement-history"
+      />
 
       <AppSheet
         visible={editing}
@@ -227,6 +332,29 @@ export function ProfileScreen() {
         </View>
       </AppSheet>
 
+      {/* Mounted only while open, so every visit starts a fresh draft without an effect. */}
+      {addOpen ? (
+        <AddMeasurementSheet
+          unitSystem={unitSystem}
+          initialKind={historyKind}
+          onDismiss={() => setAddOpen(false)}
+          onSubmit={addMeasurement}
+          testID="add-measurement-sheet"
+        />
+      ) : null}
+
+      <AppDialog
+        visible={pendingDelete !== null}
+        title={strings.profile.deleteMeasurementTitle}
+        message={strings.profile.deleteMeasurementBody}
+        confirmLabel={strings.profile.deleteMeasurementConfirm}
+        cancelLabel={strings.common.cancel}
+        destructive
+        onConfirm={deleteMeasurement}
+        onCancel={() => setPendingDelete(null)}
+        testID="delete-measurement-dialog"
+      />
+
       <AppBloodTypeDialog
         visible={bloodTypePending !== null}
         previous={record.bloodType}
@@ -243,6 +371,6 @@ export function ProfileScreen() {
 }
 
 const styles = StyleSheet.create({
-  divider: { height: StyleSheet.hairlineWidth, marginVertical: spacing.xs },
+  divider: { borderTopWidth: StyleSheet.hairlineWidth, marginVertical: spacing.xs },
   sheet: { gap: spacing.sm },
 });

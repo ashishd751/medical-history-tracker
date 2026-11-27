@@ -218,14 +218,25 @@ export const strings = {
     // Phase 3 — measurement history
     measurementHistory: 'Measurement history',
     historyEmpty: 'No measurements of this kind yet.',
+    historyKinds: {
+      height: 'Height',
+      weight: 'Weight',
+      bp: 'BP',
+      pulse: 'Pulse',
+      temperature: 'Temp',
+      spo2: 'SpO₂',
+      glucose: 'Glucose',
+    },
     addedOnProfile: 'Added on profile',
     fromRecord: 'From record',
+    openRecordHint: 'Opens the record this value came from.',
     notCounted: 'Not counted in the profile',
     trend: 'Trend',
     trendHint: 'Oldest to newest. Bar height is relative to the other values shown.',
     addMeasurement: 'Add measurement',
     addMeasurementTitle: 'Add a measurement',
     measurementSaved: 'Measurement added.',
+    measurementDeleted: 'Measurement deleted.',
     measurementInvalid: 'Enter a value within the usual range.',
     measurementDate: 'Measured on',
     deleteMeasurementTitle: 'Delete this measurement?',
@@ -233,6 +244,7 @@ export const strings = {
       'It was added here, so it can be removed. A measurement that came from a record is edited there.',
     deleteMeasurementConfirm: 'Delete measurement',
     exclusiveHint: 'Values in a record are edited from the record.',
+    heightInInches: 'Enter height in inches, for example 67.',
     // Phase 3 — profile updated sheet
     changes: {
       height: 'Height',

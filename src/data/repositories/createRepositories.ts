@@ -12,6 +12,7 @@ import { createDoctorRepository, type DoctorRepository } from './doctorRepositor
 import { createMeasurementRepository, type MeasurementRepository } from './measurementRepository';
 import { createMedicationRepository, type MedicationRepository } from './medicationRepository';
 import { createPersonRepository, type PersonRepository } from './personRepository';
+import { createProfileRepository, type ProfileRepository } from './profileRepository';
 import { createRecordRepository, type RecordRepository } from './recordRepository';
 import { createSettingsRepository, type SettingsRepository } from './settingsRepository';
 import { createTestResultRepository, type TestResultRepository } from './testResultRepository';
@@ -25,20 +26,27 @@ export interface AppRepositories {
   readonly measurements: MeasurementRepository;
   readonly doctors: DoctorRepository;
   readonly settings: SettingsRepository;
+  readonly profile: ProfileRepository;
 }
 
 export function createRepositories(
   db: AppDatabase,
   deps: RepositoryDeps = defaultRepositoryDeps,
 ): AppRepositories {
+  const people = createPersonRepository(db, deps);
+  const measurements = createMeasurementRepository(db, deps);
+  const medications = createMedicationRepository(db, deps);
+
   return {
-    people: createPersonRepository(db, deps),
+    people,
     records: createRecordRepository(db, deps),
     attachments: createAttachmentRepository(db, deps.now),
-    medications: createMedicationRepository(db, deps),
+    medications,
     readings: createTestResultRepository(db),
-    measurements: createMeasurementRepository(db, deps),
+    measurements,
     doctors: createDoctorRepository(db, deps),
     settings: createSettingsRepository(db),
+    // The profile reads through the same repositories so its queries cannot drift from theirs.
+    profile: createProfileRepository(db, { people, measurements, medications }),
   };
 }

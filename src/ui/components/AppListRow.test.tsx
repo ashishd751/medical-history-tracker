@@ -20,4 +20,14 @@ describe('AppListRow', () => {
     expect(screen.getByText('Covid')).toHaveStyle({ fontSize: 16, fontWeight: '600' });
     expect(screen.getByText('Doctor visit')).toHaveStyle({ fontSize: 13 });
   });
+
+  it('reads the whole row, not just its title, to a screen reader', async () => {
+    await render(
+      <AppThemeProvider scheme="light">
+        <AppListRow title="70 kg" subtitle="From record" meta="01/03/2026" onPress={() => {}} />
+      </AppThemeProvider>,
+    );
+
+    expect(screen.getByRole('button')).toHaveAccessibleName('70 kg, From record, 01/03/2026');
+  });
 });

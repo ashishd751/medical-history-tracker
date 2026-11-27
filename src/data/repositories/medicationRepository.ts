@@ -5,7 +5,7 @@
  * commit together. This repository handles the standalone cases — onboarding's "current
  * medication" and editing a medication from the profile — plus the reads Home needs.
  */
-import { and, desc, eq } from 'drizzle-orm';
+import { and, desc, eq, gte, inArray, isNull, or } from 'drizzle-orm';
 
 import { todayIso } from '../../lib/dates';
 import { type AppError, appError } from '../../lib/errors';
@@ -37,9 +37,19 @@ export interface MedicationRepository {
     id: string,
     status: MedicationRow['status'],
   ): Result<MedicationRow, AppError>;
-  /** `status = 'ongoing'`, newest first — the chips on Home. */
-  listCurrent(personId: string): MedicationRow[];
+  /**
+   * Current medication: `status = 'ongoing'`, not taken out of the profile by an undo, and either
+   * open-ended or ending today or later. `today` is the device's local date (ADR-043); the rule is
+   * the same one `isCurrentMedication` applies in the domain, and a test asserts they agree.
+   */
+  listCurrent(personId: string, today?: string): MedicationRow[];
   listForPerson(personId: string, limit?: number): MedicationRow[];
+  /** Flags rows out of (or back into) the derived profile without deleting them (ADR-039). */
+  setProfileExcluded(
+    personId: string,
+    ids: readonly string[],
+    excluded: boolean,
+  ): Result<number, AppError>;
   remove(personId: string, id: string): Result<true, AppError>;
 }
 
@@ -70,6 +80,7 @@ export function createMedicationRepository(
         notes: input.notes?.trim() ?? '',
         source: input.source ?? 'manual',
         reviewedAt: deps.now(),
+        profileExcluded: false,
       };
       if (!row.name) return err(appError('DB_FAILURE', 'A medication needs a name.'));
       try {
@@ -124,11 +135,20 @@ export function createMedicationRepository(
       }
     },
 
-    listCurrent: (personId) =>
+    listCurrent: (personId, today = todayIso()) =>
       db
         .select()
         .from(medication)
-        .where(and(eq(medication.personId, personId), eq(medication.status, 'ongoing')))
+        .where(
+          and(
+            eq(medication.personId, personId),
+            eq(medication.status, 'ongoing'),
+            eq(medication.profileExcluded, false),
+            // A medication that ended before today is history, even while its status says
+            // "ongoing": the end date is what the user actually recorded (ADR-043).
+            or(isNull(medication.endOn), gte(medication.endOn, today)),
+          ),
+        )
         .orderBy(desc(medication.startOn), desc(medication.id))
         .all(),
 
@@ -140,6 +160,24 @@ export function createMedicationRepository(
         .orderBy(desc(medication.startOn), desc(medication.id))
         .limit(limit)
         .all(),
+
+    setProfileExcluded(personId, ids, excluded) {
+      if (ids.length === 0) return ok(0);
+      try {
+        let changed = 0;
+        db.transaction((tx) => {
+          const result = tx
+            .update(medication)
+            .set({ profileExcluded: excluded })
+            .where(and(eq(medication.personId, personId), inArray(medication.id, [...ids])))
+            .run();
+          changed = Number(result.changes);
+        });
+        return ok(changed);
+      } catch (error) {
+        return err(appError('DB_FAILURE', 'Could not update the medication.', error));
+      }
+    },
 
     remove(personId, id) {
       try {

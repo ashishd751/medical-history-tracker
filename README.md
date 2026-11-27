@@ -3,10 +3,14 @@
 A private, offline medical-history app for one family. Everything stays on the device: no backend,
 no account, no analytics, no camera, no notifications.
 
-**Status:** Phase 2 (attachments) built: prescription photos and PDFs, lab reports and other files,
-a relative-path file store with a startup sweeper, and a zoomable viewer (ADR-030 to ADR-036). The
-Android path is verified end to end on the emulator; the iOS photo picker still needs a manual pass.
-See `docs/PHASE2-PROGRESS.md` for the task-by-task evidence and the outstanding device checks.
+**Status:** Phase 3 (profile and measurements) built: the profile is derived from the newest
+measurement of each kind, a "Profile updated" sheet with Undo follows every save, a recorded blood
+type is only replaced after confirmation, and the Profile screen has a measurement history with a
+trend and standalone measurements. Verified on the iOS simulator and the Android emulator, except
+the iOS photo-picker selection (the dev client's floating button intercepts it). See
+`docs/PHASE3-PROGRESS.md` for the task-by-task evidence and `docs/DECISIONS.md` (ADR-038 to ADR-046)
+for the design. Phases 1 and 2 are complete: manual records with search and filters, and
+attachments with a relative-path file store, a startup sweeper and a zoomable viewer.
 
 ## Requirements
 

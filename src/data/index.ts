@@ -26,6 +26,7 @@ export {
   type MedicationInput,
   type MedicationRepository,
   type PersonRepository,
+  type ProfileRepository,
   type ReadingInput,
   type RecordDetail,
   type RecordFilter,

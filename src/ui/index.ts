@@ -7,11 +7,14 @@ export {
   formatHeight,
   formatMeasurement,
   formatMonthLabel,
+  formatProfileChange,
+  formatProfileChanges,
   formatPulse,
   formatSpo2,
   formatTemperature,
   formatWeight,
   MONTH_NAMES,
+  type ProfileChangeRow,
 } from './format';
 export {
   attachmentRoleLabel,

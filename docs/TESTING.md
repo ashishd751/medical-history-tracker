@@ -180,6 +180,32 @@ For each step the expected result is given; anything else is a bug worth writing
 - Long lists: with ten attachments the form still scrolls smoothly and the Save footer stays pinned.
 - Dark mode: repeat step C on iOS in dark mode and on Android in light.
 
+## 6b. Manual checklist — profile and measurements (Phase 3)
+
+Run each on both platforms. `docs/PHASE3-PROGRESS.md` records the results of the run this phase
+shipped with.
+
+1. Add a record whose weight differs from the profile: the **Profile updated** sheet lists
+   Weight 70 kg → 72 kg (and BMI). **Undo** puts Home and Profile back; the record keeps its 72 kg.
+2. Add a **backdated** record (tap the date field, pick an earlier day) with a different weight: no
+   sheet, Home unchanged, and the value is in the history.
+3. Edit a record's weight: the sheet appears **without** Undo and says why. Delete a record that
+   supplied the latest value: the profile reverts and the no-Undo notice appears.
+4. Add a medication through a record: it appears under Current medication on Home. (There is no
+   screen for an end date yet; the rule is covered by `medication.test.ts`.)
+5. Profile → Edit profile → set a blood type the first time (no question), then change it (question,
+   Cancel keeps the old group), then clear it (question again).
+6. Settings → Imperial: the diff rows, the history and the add form use lb/ft, and the stored
+   metric values do not change (`select v1 from measurement`).
+7. Profile → Measurement history: switch kinds, tap a "From record" row to open its record, add a
+   standalone measurement, then delete it.
+8. Appearance and size: iOS dark, iOS accessibility XL, Android at 360 dp with font scale 1.3. The
+   sheet, the history rows and the dialogs must not clip, and the buttons must clear the home
+   indicator or gesture bar **with the keyboard open**.
+9. Kill the app while the sheet is open: on relaunch the data is consistent, no sheet, no crash.
+10. The Phase 1 smoke test (section 9) plus attaching an image and deleting the record, whose files
+    must go with it (section 7).
+
 ## 7. Looking at the stored files and rows
 
 Relative paths are `attachments/<personId>/<recordId>/<attachmentId>.<ext>` and
@@ -244,11 +270,15 @@ xcrun simctl terminate booted com.ashishd751.medicalhistory
 Delete any synthetic record through the app so its files go too, discard drafts so `staging/` is
 empty, and restore any font scale, density or appearance you changed.
 
-## 11. Known gaps at the end of Phase 2
+## 11. Known gaps at the end of Phase 3
 
-- The iOS photo/files pickers could not be exercised under Maestro in this session: the taps
-  completed, no picker appeared, and no error banner was shown. A manual pass on the simulator is
-  the next thing to do (section 6, step A3).
+- **There is no end-date UI for medication yet.** `medication.end_on` and the "current medication"
+  rule exist and are tested, but no screen sets an end date; the device check wrote it into SQLite.
+- **iOS photo-picker selection under Maestro.** The picker now presents (it did not in Phase 2), but
+  the dev client's floating menu button intercepts taps inside it, so the Android path is the one
+  verified end to end. A manual pass on the simulator is still needed.
+- At the largest iOS accessibility text size the "Glucose" kind pill ellipsises to "Glu co…" and the
+  record form's "Vitals · Height (cm)" label truncates. Both are for the Phase 8 accessibility audit.
 - Pinch-zoom is not measurable with Maestro; double-tap and pan are the practical checks.
 - At the largest accessibility text size a record-row badge can wrap (deferred to the Phase 8
   accessibility audit).

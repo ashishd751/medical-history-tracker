@@ -1,6 +1,7 @@
 /**
  * @jest-environment node
  */
+import { isCurrentMedication } from '../../domain';
 import { todayIso } from '../../lib/dates';
 import { createRepositoryFixture } from '../testing/repositoryFixture';
 
@@ -85,6 +86,56 @@ describe('medicationRepository', () => {
       false,
     );
     expect(fixture.repos.medications.listCurrent(fixture.personId)[0]?.name).toBe('Synthetic Med');
+    fixture.close();
+  });
+
+  it('applies the end-date rule with an injected today (ADR-043)', () => {
+    const fixture = createRepositoryFixture();
+    const today = '2026-11-27';
+    const add = (name: string, endOn: string | null) => {
+      const created = fixture.repos.medications.create(fixture.personId, {
+        name,
+        startOn: '2026-01-01',
+        endOn,
+      });
+      if (!created.ok) throw new Error(`setup failed for ${name}`);
+      return created.value;
+    };
+
+    add('Synthetic Open', null);
+    add('Synthetic Ends today', today);
+    add('Synthetic Ends tomorrow', '2026-11-28');
+    add('Synthetic Ended yesterday', '2026-11-26');
+
+    const current = fixture.repos.medications.listCurrent(fixture.personId, today);
+    expect(current.map((row) => row.name).sort()).toEqual([
+      'Synthetic Ends today',
+      'Synthetic Ends tomorrow',
+      'Synthetic Open',
+    ]);
+
+    // The SQL and the domain rule must agree, or Home and the profile would disagree.
+    for (const row of fixture.repos.medications.listForPerson(fixture.personId)) {
+      expect(isCurrentMedication(row, today)).toBe(current.some((entry) => entry.id === row.id));
+    }
+    fixture.close();
+  });
+
+  it('hides a medication that undo took out of the profile, without deleting it', () => {
+    const fixture = createRepositoryFixture();
+    const created = fixture.repos.medications.create(fixture.personId, {
+      name: 'Synthetic Med',
+      startOn: '2026-01-01',
+    });
+    if (!created.ok) throw new Error('setup failed');
+
+    expect(
+      fixture.repos.medications.setProfileExcluded(fixture.personId, [created.value.id], true),
+    ).toEqual({ ok: true, value: 1 });
+
+    expect(fixture.repos.medications.listCurrent(fixture.personId, '2026-11-27')).toEqual([]);
+    // The record (and any record that references it) still owns the row.
+    expect(fixture.repos.medications.listForPerson(fixture.personId)).toHaveLength(1);
     fixture.close();
   });
 });

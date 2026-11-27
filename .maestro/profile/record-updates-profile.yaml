@@ -1,0 +1,154 @@
+# Phase 3 acceptance flow: a save that moves the profile, the sheet, and Undo.
+#
+# Run from the repo root, passing the Metro URL for the device under test (see .maestro/README.md):
+#   iOS:     --env EXPO_URL='medicalhistory://expo-development-client/?url=http%3A%2F%2Flocalhost%3A8081'
+#            --env METRO_HOST='localhost:8081'
+#   Android: --env EXPO_URL='medicalhistory://expo-development-client/?url=http%3A%2F%2F10.0.2.2%3A8081'
+#            --env METRO_HOST='10.0.2.2:8081'
+#
+# It starts from a cleared app and onboards, so the profile it moves is always 170 cm / 70 kg
+# (BMI 24.2 on the default Asian preset). That makes the old → new values in the sheet exact.
+appId: com.ashishd751.medicalhistory
+---
+- launchApp:
+    clearState: true
+- openLink: ${EXPO_URL}
+
+- runFlow:
+    when:
+      visible: 'Connect'
+    commands:
+      - tapOn: 'http://'
+      - inputText: ${METRO_HOST}
+      - tapOn: 'Connect'
+- runFlow:
+    when:
+      visible: 'Continue'
+    commands:
+      - tapOn: 'Continue'
+- runFlow:
+    when:
+      visible: 'Go home'
+    commands:
+      - back
+
+- extendedWaitUntil:
+    visible: 'Welcome'
+    timeout: 120000
+
+# --- Onboarding -------------------------------------------------------------
+- extendedWaitUntil:
+    visible:
+      id: 'onboarding-name'
+    timeout: 30000
+- waitForAnimationToEnd:
+    timeout: 5000
+- tapOn:
+    id: 'onboarding-name'
+- waitForAnimationToEnd:
+    timeout: 2000
+- tapOn:
+    id: 'onboarding-name'
+- inputText: 'Synthetic Person'
+- tapOn: 'Female'
+- tapOn: 'Next'
+- extendedWaitUntil:
+    visible: 'Body'
+    timeout: 20000
+- tapOn:
+    id: 'onboarding-height'
+- inputText: '170'
+- tapOn:
+    id: 'onboarding-weight'
+- inputText: '70'
+- tapOn: 'Metric (cm, kg)'
+- tapOn: 'Next'
+- extendedWaitUntil:
+    visible: 'Health basics'
+    timeout: 20000
+- tapOn: 'Finish setup'
+- extendedWaitUntil:
+    visible:
+      id: 'snapshot-card'
+    timeout: 30000
+- assertVisible:
+    text: '70 kg'
+
+# --- A record whose weight differs from the profile -------------------------
+- tapOn:
+    id: 'tab-add'
+- extendedWaitUntil:
+    visible:
+      id: 'add-sheet'
+    timeout: 10000
+- tapOn:
+    id: 'add-manual'
+- extendedWaitUntil:
+    visible:
+      id: 'screen-record-form'
+    timeout: 20000
+- tapOn:
+    id: 'form-title'
+- inputText: 'Fever and cough'
+- tapOn: 'Doctor visit'
+- scrollUntilVisible:
+    element:
+      id: 'vital-weight'
+    direction: DOWN
+    timeout: 20000
+- tapOn:
+    id: 'vital-weight'
+- inputText: '72'
+# Tapping a plain heading dismisses the keyboard: the form's ScrollView uses
+# `keyboardShouldPersistTaps="handled"`, so a tap no control handles closes it.
+- tapOn: 'Vitals'
+- tapOn: 'Save'
+
+# --- The sheet --------------------------------------------------------------
+- extendedWaitUntil:
+    visible: 'Profile updated'
+    timeout: 30000
+# Old → new for the weight, and the BMI it moved with it.
+- assertVisible:
+    text: '70 kg'
+- assertVisible:
+    text: '72 kg'
+- assertVisible:
+    text: '24.2'
+- assertVisible:
+    text: '24.9'
+- assertVisible:
+    text: 'Undo'
+
+# --- Undo keeps the record and puts the profile back ------------------------
+- tapOn: 'Undo'
+- extendedWaitUntil:
+    visible: 'Undone. The record was kept.'
+    timeout: 10000
+- tapOn: 'Done'
+# The record itself is still on screen, with its own vitals.
+- extendedWaitUntil:
+    visible:
+      id: 'screen-record-detail'
+    timeout: 20000
+- assertVisible:
+    text: 'Fever and cough'
+- assertVisible:
+    text: '72 kg'
+
+- tapOn: 'Back'
+- extendedWaitUntil:
+    visible:
+      id: 'tab-home'
+    timeout: 20000
+- tapOn:
+    id: 'tab-home'
+- extendedWaitUntil:
+    visible:
+      id: 'snapshot-card'
+    timeout: 20000
+# The profile is back to the value it held before the record existed.
+- assertVisible:
+    text: '70 kg'
+- assertNotVisible:
+    text: '72 kg'

@@ -31,6 +31,11 @@ export { type MeasurementInput, type MeasurementRepository } from './measurement
 export { type MedicationPatch, type MedicationRepository } from './medicationRepository';
 export { type NewPersonInput, type PersonPatch, type PersonRepository } from './personRepository';
 export {
+  type ProfileRepository,
+  type ProfileSnapshotOptions,
+  type ProfileSources,
+} from './profileRepository';
+export {
   DEFAULT_PAGE_LIMIT,
   type MedicationInput,
   parseSymptoms,

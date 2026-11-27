@@ -11,10 +11,13 @@ import {
   formatReading,
   kgToLb,
   type MeasurementKind,
+  type ProfileBloodPressureValue,
+  type ProfileChange,
   roundTo,
   type UnitSystem,
 } from '@/domain';
 
+import { bloodTypeLabel } from './labels';
 import { strings } from './strings';
 
 export const MONTH_NAMES = [
@@ -109,4 +112,113 @@ export function formatMeasurement(
 /** Centimetres as inches, for the imperial height input. */
 export function cmToInches(cm: number): number {
   return roundTo(cmToIn(cm), 1);
+}
+
+/** One row of the "Profile updated" sheet, already in the user's units and language. */
+export interface ProfileChangeRow {
+  /** Stable key for lists; a medication change can produce more than one row. */
+  readonly key: string;
+  readonly label: string;
+  readonly from: string;
+  readonly to: string;
+  readonly testID: string;
+}
+
+function bloodPressureText(value: ProfileBloodPressureValue | null): string {
+  return value === null
+    ? strings.common.notRecorded
+    : formatBloodPressure(value.systolic, value.diastolic);
+}
+
+/**
+ * Formats a metric profile change for display.
+ *
+ * Comparison always happens in metric (the snapshot is metric); only this function knows about the
+ * unit setting, so flipping units while the sheet is open re-renders the same change correctly.
+ * A medication change becomes one row per added or removed name, because "A, B → A, B, C" wraps
+ * badly at 360 dp and hides which name is new.
+ */
+export function formatProfileChange(
+  change: ProfileChange,
+  unitSystem: UnitSystem,
+): readonly ProfileChangeRow[] {
+  const notRecorded = strings.common.notRecorded;
+
+  switch (change.kind) {
+    case 'height':
+      return [
+        {
+          key: 'height',
+          label: strings.profile.changes.height,
+          from: change.from === null ? notRecorded : formatHeight(change.from, unitSystem),
+          to: change.to === null ? notRecorded : formatHeight(change.to, unitSystem),
+          testID: 'profile-change-height',
+        },
+      ];
+    case 'weight':
+      return [
+        {
+          key: 'weight',
+          label: strings.profile.changes.weight,
+          from: change.from === null ? notRecorded : formatWeight(change.from, unitSystem),
+          to: change.to === null ? notRecorded : formatWeight(change.to, unitSystem),
+          testID: 'profile-change-weight',
+        },
+      ];
+    case 'bmi':
+      return [
+        {
+          key: 'bmi',
+          label: strings.profile.changes.bmi,
+          from: change.from === null ? notRecorded : formatBmi(change.from),
+          to: change.to === null ? notRecorded : formatBmi(change.to),
+          testID: 'profile-change-bmi',
+        },
+      ];
+    case 'bloodPressure':
+      return [
+        {
+          key: 'bloodPressure',
+          label: strings.profile.changes.bloodPressure,
+          from: bloodPressureText(change.from),
+          to: bloodPressureText(change.to),
+          testID: 'profile-change-bp',
+        },
+      ];
+    case 'bloodType':
+      return [
+        {
+          key: 'bloodType',
+          label: strings.profile.changes.bloodType,
+          from: bloodTypeLabel(change.from),
+          to: bloodTypeLabel(change.to),
+          testID: 'profile-change-blood-type',
+        },
+      ];
+    case 'medications':
+      return [
+        ...change.added.map((name) => ({
+          key: `added-${name}`,
+          label: strings.profile.changes.medications,
+          from: strings.common.none,
+          to: name,
+          testID: 'profile-change-medication-added',
+        })),
+        ...change.removed.map((name) => ({
+          key: `removed-${name}`,
+          label: strings.profile.changes.medications,
+          from: name,
+          to: strings.common.none,
+          testID: 'profile-change-medication-removed',
+        })),
+      ];
+  }
+}
+
+/** Flattens a set of changes into display rows, in the order the domain produced them. */
+export function formatProfileChanges(
+  changes: readonly ProfileChange[],
+  unitSystem: UnitSystem,
+): readonly ProfileChangeRow[] {
+  return changes.flatMap((change) => formatProfileChange(change, unitSystem));
 }

@@ -56,11 +56,42 @@ repository tests rather than the flow, to keep the end-to-end path stable on bot
 
 `dev/dismiss-intro.yaml` remains useful for dismissing the dev-client intro by hand.
 
+## Profile and measurements (Phase 3)
+
+`profile/record-updates-profile.yaml` proves the sheet and Undo; `profile/backdated-record.yaml`
+proves that a backdated save does not touch the profile. Both start from `clearState: true` and
+onboard, so the old → new values are always 70 kg → 72 kg (BMI 24.2 → 24.9) and the assertions can
+be exact.
+
+```bash
+maestro --device D65428AF-F679-40FB-817B-FCC564B975C6 test \
+  --env EXPO_URL='medicalhistory://expo-development-client/?url=http%3A%2F%2Flocalhost%3A8081' \
+  --env METRO_HOST='localhost:8081' .maestro/profile/record-updates-profile.yaml
+maestro --device emulator-5554 test \
+  --env EXPO_URL='medicalhistory://expo-development-client/?url=http%3A%2F%2F10.0.2.2%3A8081' \
+  --env METRO_HOST='10.0.2.2:8081' .maestro/profile/backdated-record.yaml
+```
+
+Traps specific to these flows:
+
+- **A row's label is "value, source, date"** (`AppListRow` sets one accessibility label for the whole
+  row), so a row assertion needs wildcards: `text: '.*From record.*'`, not `'From record'`.
+- **The date field is one accessible node** whose label is `Date: DD/MM/YYYY`; its inner text is
+  hidden, so `text: 'Date: 01/\d{2}/\d{4}'` is the assertion that works.
+- **Rows sit below the fold.** Use `scrollUntilVisible` with `centerElement: true`; a row near the
+  bottom of the screen is behind the floating tab bar and a centre tap would hit the **+**.
+- **Banners are at the top of the screen**, so after acting on the history you must scroll **up**
+  to assert on "Measurement added." / "Measurement deleted.".
+- **The dev client's floating menu button covers the header's top-right corner** on iOS, which is why
+  "Edit profile" lives in the body (ADR-046) and why nothing else should go in that corner.
+- **The backdated flow taps day 1 of the current month**, which is "backdated" only when today is not
+  the 1st. On the 1st, move the device date forward a day before running it.
+
 ## Attachments (Phase 2)
 
 There is deliberately **no committed flow for the pickers yet**. Both system pickers are separate
-apps, and on iOS 27 the photo picker did not present under Maestro in this session (the taps
-completed and nothing appeared), so a flow would be flaky and misleading. The pipeline underneath is
+apps, and on iOS 27 the photo picker presents but the dev client's floating menu button intercepts
+Maestro's taps inside it, so a flow would be flaky and misleading. The pipeline underneath is
 covered by Jest (`attachmentService.test.ts`, `fileStore.test.ts`, `fileSweeper.test.ts`).
 
 What does work, and is worth reusing:

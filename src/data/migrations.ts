@@ -176,6 +176,17 @@ export const MIGRATIONS: readonly Migration[] = [
        END`,
     ],
   },
+  {
+    version: 3,
+    name: 'profile exclusion flags',
+    statements: [
+      // Undo of a "Profile updated" change must not delete the record's own vitals, so a row is
+      // flagged out of the derived profile instead (ADR-039). Forward-only: rows written before
+      // this migration keep counting, which is what the default expresses.
+      'ALTER TABLE measurement ADD COLUMN profile_excluded INTEGER NOT NULL DEFAULT 0',
+      'ALTER TABLE medication ADD COLUMN profile_excluded INTEGER NOT NULL DEFAULT 0',
+    ],
+  },
 ];
 
 /** The version a freshly migrated database must report. */

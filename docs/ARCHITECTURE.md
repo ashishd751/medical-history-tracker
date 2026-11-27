@@ -43,7 +43,9 @@ Rules:
 ## State
 
 - **TanStack Query** for reads over repositories (caching, invalidation after writes).
-- **Zustand** for drafts, filters and UI flags.
+- **A module-level store read with `useSyncExternalStore`** for the one transient value the app has:
+  the pending "Profile updated" change (ADR-040).
+- **Zustand** is installed but still unused; nothing needs it yet.
 - **react-hook-form + Zod** for forms; Zod also validates import files, OCR output and settings.
 
 ## Data invariants
@@ -103,6 +105,29 @@ src/features/records/attachments  import pipeline, staged draft files, sections,
   rows whose file is missing, which the UI shows as "File missing" (ADR-034).
 - The viewer zooms with gesture-handler/Reanimated; a PDF shows its first page and opens through the
   share sheet (ADR-035).
+
+## Profile and measurements (Phase 3)
+
+```
+src/domain/profile.ts                     ProfileSnapshot, computeProfileDiff, the medication and
+                                          blood-type rules (pure; today and the BMI preset injected)
+src/data/repositories/profileRepository  snapshot() over the newest rows + undo()
+src/features/records/profileSync.ts      capture before, diff after, build the undo plan
+src/lib/profileChangeStore.ts            the pending change, read with useSyncExternalStore
+src/features/shell/ProfileChangeHost.tsx  one "Profile updated" sheet above the navigator
+src/features/profile/*                    screen, history, trend, add-measurement sheet
+```
+
+- Nothing about the profile is stored: `snapshot()` derives it from the newest non-excluded
+  `measurement` row per kind, the person's blood type and `listCurrent()` (ADR-038).
+- Home and Profile read the same `['profile', personId, today, bmiPreset]` query, so the snapshot
+  card and the current-medication chips cannot disagree (section 4.3 of the phase brief).
+- Migration v3 adds `profile_excluded` to `measurement` and `medication`; Undo sets it rather than
+  deleting a record's own vitals (ADR-039).
+- A save publishes one report into the in-memory store; the host shows it, Undo is offered only
+  where it is exact, and an edit or a delete explains why there is none (ADR-040, ADR-041).
+- "Current medication" is `ongoing` **and** (`end_on IS NULL OR end_on >= today`), with the same
+  rule in the domain and in the SQL (ADR-043).
 
 ## UI system
 

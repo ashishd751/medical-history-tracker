@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { Modal, Pressable, StyleSheet, View } from 'react-native';
+import { KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useAppTheme } from '../ThemeProvider';
@@ -30,7 +30,13 @@ export function AppSheet({ visible, onDismiss, title, children, testID }: AppShe
       onRequestClose={onDismiss}
       statusBarTranslucent
     >
-      <View style={styles.root}>
+      <KeyboardAvoidingView
+        style={styles.root}
+        // A sheet with text fields must rise above the software keyboard, or its primary button
+        // sits behind it (ADR-042). iOS pads the sheet up; Android's Modal window does not resize
+        // with the keyboard, so it is shrunk instead.
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
         <Pressable
           style={styles.backdrop}
           onPress={onDismiss}
@@ -56,7 +62,7 @@ export function AppSheet({ visible, onDismiss, title, children, testID }: AppShe
           ) : null}
           {children}
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }

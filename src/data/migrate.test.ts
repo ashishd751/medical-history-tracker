@@ -172,6 +172,37 @@ describe('v2 search index', () => {
   });
 });
 
+describe('v3 profile exclusion flags', () => {
+  it('adds the column to existing rows and leaves them counting for the profile', () => {
+    // A phone that upgraded: measurements and medications written before v3 must not be taken out
+    // of the profile by the new default.
+    const { raw, migrations, close } = databaseAtVersion(2);
+    seedPerson(raw);
+    raw
+      .prepare(
+        `INSERT INTO measurement (id, person_id, kind, v1, measured_on, created_at)
+         VALUES ('mm1', 'p1', 'weight', 70, '2026-10-01', 1)`,
+      )
+      .run();
+    raw
+      .prepare(
+        `INSERT INTO medication (id, person_id, name, start_on, status)
+         VALUES ('mg1', 'p1', 'Synthetic Amoxicillin', '2026-10-01', 'ongoing')`,
+      )
+      .run();
+
+    expect(runMigrations(migrations)).toEqual({ ok: true, value: LATEST_SCHEMA_VERSION });
+
+    expect(raw.prepare('SELECT profile_excluded FROM measurement').get()).toEqual({
+      profile_excluded: 0,
+    });
+    expect(raw.prepare('SELECT profile_excluded FROM medication').get()).toEqual({
+      profile_excluded: 0,
+    });
+    close();
+  });
+});
+
 describe('re-running migrations', () => {
   it('is a no-op and preserves data', () => {
     const empty = createEmptyTestDatabase();

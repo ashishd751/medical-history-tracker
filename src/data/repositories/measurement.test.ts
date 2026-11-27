@@ -1,7 +1,7 @@
 /**
  * @jest-environment node
  */
-import { createRepositoryFixture } from '../testing/repositoryFixture';
+import { createRepositoryFixture, recordInput } from '../testing/repositoryFixture';
 
 describe('measurementRepository', () => {
   it('returns the latest value by date, not by insertion order', () => {
@@ -96,6 +96,72 @@ describe('measurementRepository', () => {
 
     expect(fixture.repos.measurements.remove(fixture.personId, created.value.id).ok).toBe(true);
     expect(fixture.repos.measurements.latest(fixture.personId, 'pulse')).toBeNull();
+    fixture.close();
+  });
+
+  it('keeps an excluded row out of the profile but in the history (ADR-039)', () => {
+    const fixture = createRepositoryFixture();
+    const older = fixture.repos.measurements.create(fixture.personId, {
+      kind: 'weight',
+      v1: 70,
+      measuredOn: '2026-01-01',
+    });
+    const newer = fixture.repos.measurements.create(fixture.personId, {
+      kind: 'weight',
+      v1: 74,
+      measuredOn: '2026-02-01',
+    });
+    if (!older.ok || !newer.ok) throw new Error('setup failed');
+
+    expect(fixture.repos.measurements.latest(fixture.personId, 'weight')?.v1).toBe(74);
+
+    const excluded = fixture.repos.measurements.setProfileExcluded(
+      fixture.personId,
+      [newer.value.id],
+      true,
+    );
+    expect(excluded).toEqual({ ok: true, value: 1 });
+
+    // The profile falls back to the previous value; the row itself is still in the history.
+    expect(fixture.repos.measurements.latest(fixture.personId, 'weight')?.v1).toBe(70);
+    const history = fixture.repos.measurements.listByKind(fixture.personId, 'weight');
+    expect(history.map((row) => row.v1)).toEqual([74, 70]);
+    expect(history[0]?.profileExcluded).toBe(true);
+    fixture.close();
+  });
+
+  it('lists the rows a record wrote and ignores another person’s rows when flagging', () => {
+    const fixture = createRepositoryFixture();
+    const otherPerson = fixture.addPerson('Synthetic Relative');
+    const created = fixture.repos.records.create(
+      fixture.personId,
+      recordInput({
+        id: 'r1',
+        vitals: [
+          { kind: 'height', v1: 171 },
+          { kind: 'weight', v1: 71 },
+        ],
+      }),
+    );
+    if (!created.ok) throw new Error(`record failed: ${created.error.detail}`);
+
+    const rows = fixture.repos.measurements.listByRecord(fixture.personId, 'r1');
+    expect(rows.map((row) => row.kind).sort()).toEqual(['height', 'weight']);
+
+    // A flag aimed at another person's data must not touch anything.
+    const flagged = fixture.repos.measurements.setProfileExcluded(
+      otherPerson,
+      rows.map((row) => row.id),
+      true,
+    );
+    expect(flagged).toEqual({ ok: true, value: 0 });
+    expect(fixture.repos.measurements.latest(fixture.personId, 'weight')?.v1).toBe(71);
+
+    // An empty list is a no-op rather than an `IN ()` syntax error.
+    expect(fixture.repos.measurements.setProfileExcluded(fixture.personId, [], true)).toEqual({
+      ok: true,
+      value: 0,
+    });
     fixture.close();
   });
 });

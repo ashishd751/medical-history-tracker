@@ -152,16 +152,16 @@ appId: com.ashishd751.medicalhistory
       id: 'screen-records'
     timeout: 20000
 - assertVisible:
-    text: 'Fever and cough'
+    text: '.*Fever and cough.*'
 - assertVisible:
-    text: '\d{2}/\d{2}/\d{4}'
+    text: '.*\d{2}/\d{2}/\d{4}.*'
 - assertNotVisible:
-    text: '\d{4}-\d{2}-\d{2}'
+    text: '.*\d{4}-\d{2}-\d{2}.*'
 - assertVisible:
     text: '1 record'
 
 # --- Edit ------------------------------------------------------------------
-- tapOn: 'Fever and cough'
+- tapOn: '.*Fever and cough.*'
 - extendedWaitUntil:
     visible:
       id: 'screen-record-detail'

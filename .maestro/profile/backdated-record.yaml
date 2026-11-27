@@ -1,0 +1,151 @@
+# Phase 3 acceptance flow: a backdated record joins the history but does not move the profile.
+#
+# The date is set to the 1st of the current month. On a real phone that is only "backdated" when
+# today is not the 1st; these flows run against the synthetic November 2026 fixture, where it is.
+# If the assertion below fails on the 1st of a month, move the device date forward a day.
+#
+# Run from the repo root (see .maestro/README.md for the per-platform environment):
+#   iOS:     --env EXPO_URL='medicalhistory://expo-development-client/?url=http%3A%2F%2Flocalhost%3A8081'
+#            --env METRO_HOST='localhost:8081'
+#   Android: --env EXPO_URL='medicalhistory://expo-development-client/?url=http%3A%2F%2F10.0.2.2%3A8081'
+#            --env METRO_HOST='10.0.2.2:8081'
+appId: com.ashishd751.medicalhistory
+---
+- launchApp:
+    clearState: true
+- openLink: ${EXPO_URL}
+
+- runFlow:
+    when:
+      visible: 'Connect'
+    commands:
+      - tapOn: 'http://'
+      - inputText: ${METRO_HOST}
+      - tapOn: 'Connect'
+- runFlow:
+    when:
+      visible: 'Continue'
+    commands:
+      - tapOn: 'Continue'
+- runFlow:
+    when:
+      visible: 'Go home'
+    commands:
+      - back
+
+- extendedWaitUntil:
+    visible: 'Welcome'
+    timeout: 120000
+
+# --- Onboarding: 170 cm / 70 kg --------------------------------------------
+- extendedWaitUntil:
+    visible:
+      id: 'onboarding-name'
+    timeout: 30000
+- waitForAnimationToEnd:
+    timeout: 5000
+- tapOn:
+    id: 'onboarding-name'
+- waitForAnimationToEnd:
+    timeout: 2000
+- tapOn:
+    id: 'onboarding-name'
+- inputText: 'Synthetic Person'
+- tapOn: 'Female'
+- tapOn: 'Next'
+- extendedWaitUntil:
+    visible: 'Body'
+    timeout: 20000
+- tapOn:
+    id: 'onboarding-height'
+- inputText: '170'
+- tapOn:
+    id: 'onboarding-weight'
+- inputText: '70'
+- tapOn: 'Metric (cm, kg)'
+- tapOn: 'Next'
+- extendedWaitUntil:
+    visible: 'Health basics'
+    timeout: 20000
+- tapOn: 'Finish setup'
+- extendedWaitUntil:
+    visible:
+      id: 'snapshot-card'
+    timeout: 30000
+
+# --- A record dated the 1st of this month ----------------------------------
+- tapOn:
+    id: 'tab-add'
+- extendedWaitUntil:
+    visible:
+      id: 'add-sheet'
+    timeout: 10000
+- tapOn:
+    id: 'add-manual'
+- extendedWaitUntil:
+    visible:
+      id: 'screen-record-form'
+    timeout: 20000
+- tapOn:
+    id: 'form-title'
+- inputText: 'Backdated visit'
+- tapOn: 'Doctor visit'
+- tapOn:
+    id: 'form-date'
+- waitForAnimationToEnd:
+    timeout: 3000
+# iOS shows an inline calendar in the app's own sheet; Android opens a Material date dialog.
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - tapOn: '1'
+      - tapOn: 'Done'
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - tapOn: '1'
+      - tapOn: 'OK'
+# The date field's accessible label carries the DD/MM/YYYY value (its inner text is hidden).
+- assertVisible:
+    text: 'Date: 01/\d{2}/\d{4}'
+- scrollUntilVisible:
+    element:
+      id: 'vital-weight'
+    direction: DOWN
+    timeout: 20000
+- tapOn:
+    id: 'vital-weight'
+- inputText: '75'
+- tapOn: 'Vitals'
+- tapOn: 'Save'
+
+# --- No sheet: the newest weight still wins --------------------------------
+- extendedWaitUntil:
+    visible:
+      id: 'screen-record-detail'
+    timeout: 30000
+- assertVisible:
+    text: 'Backdated visit'
+- assertNotVisible:
+    text: 'Profile updated'
+# The record keeps its own value.
+- assertVisible:
+    text: '75 kg'
+
+- tapOn: 'Back'
+- extendedWaitUntil:
+    visible:
+      id: 'tab-home'
+    timeout: 20000
+- tapOn:
+    id: 'tab-home'
+- extendedWaitUntil:
+    visible:
+      id: 'snapshot-card'
+    timeout: 20000
+- assertVisible:
+    text: '70 kg'
+- assertNotVisible:
+    text: '75 kg'

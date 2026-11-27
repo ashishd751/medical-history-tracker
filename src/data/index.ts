@@ -21,6 +21,8 @@ export {
   createRepositories,
   DEFAULT_PAGE_LIMIT,
   type DoctorRepository,
+  type ExportPreferences,
+  type ExportRepository,
   getRepositories,
   type MeasurementRepository,
   type MedicationInput,

@@ -9,6 +9,7 @@
  */
 import {
   ageInYears,
+  type AttachmentRole,
   type ExportColumnId,
   type ExportFact,
   type ExportTableRow,
@@ -21,6 +22,7 @@ import {
 } from '@/domain';
 import { formatDisplayDate } from '@/lib/dates';
 import {
+  attachmentRoleLabel,
   bloodTypeLabel,
   bmiCategoryLabel,
   exportVitalLabel,
@@ -72,8 +74,8 @@ export interface ExportRecordSource {
   readonly medications: readonly ExportMedicationLike[];
   readonly readings: readonly ExportReadingLike[];
   readonly measurements: readonly ExportMeasurementLike[];
-  readonly attachmentCount: number;
-  readonly attachmentNames: readonly string[];
+  /** One entry per stored file. A file's stored name is an opaque id, so only its role is useful. */
+  readonly attachmentRoles: readonly AttachmentRole[];
 }
 
 export interface ExportFormatContext {
@@ -135,18 +137,24 @@ export function formatExportVitals(
 }
 
 /**
- * `2 files: report.pdf, scan.jpg` (at most three names, then a count of the rest).
+ * `3 files: 2 lab reports, 1 prescription`.
  *
- * The attachments column is optional and off by default: a PDF with a dozen long file names is
- * unreadable at five columns, and the files themselves are not embedded (ADR-049).
+ * The attachments column is optional and off by default: a PDF with a dozen file names is
+ * unreadable at five columns, and the files themselves are not embedded. Stored files keep no
+ * original name (their row holds a generated id), so the role is what a reader can be told.
  */
-export function formatExportAttachments(count: number, names: readonly string[]): string {
-  if (count <= 0) return '';
-  const label = `${count} file${count === 1 ? '' : 's'}`;
-  if (names.length === 0) return label;
-  const shown = names.slice(0, 3).join(', ');
-  const rest = names.length > 3 ? ` +${names.length - 3}` : '';
-  return `${label}: ${shown}${rest}`;
+export function formatExportAttachments(roles: readonly AttachmentRole[]): string {
+  if (roles.length === 0) return '';
+  const label = `${roles.length} file${roles.length === 1 ? '' : 's'}`;
+  const order: readonly AttachmentRole[] = ['prescription', 'lab_report', 'other'];
+  const parts: string[] = [];
+  for (const role of order) {
+    const count = roles.filter((entry) => entry === role).length;
+    if (count === 0) continue;
+    const name = attachmentRoleLabel(role);
+    parts.push(`${count} ${count === 1 ? name.toLowerCase() : `${name.toLowerCase()}s`}`);
+  }
+  return `${label}: ${parts.join(', ')}`;
 }
 
 /** One cell. An empty string means "nothing recorded" and prints as a dash. */
@@ -181,7 +189,7 @@ export function exportCell(
     case 'comments':
       return record.comments;
     case 'attachments':
-      return formatExportAttachments(record.attachmentCount, record.attachmentNames);
+      return formatExportAttachments(record.attachmentRoles);
   }
 }
 

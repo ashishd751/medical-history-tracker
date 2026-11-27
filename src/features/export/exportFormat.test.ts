@@ -30,8 +30,7 @@ function record(overrides: Partial<ExportRecordSource> = {}): ExportRecordSource
     medications: [],
     readings: [],
     measurements: [],
-    attachmentCount: 0,
-    attachmentNames: [],
+    attachmentRoles: [],
     ...overrides,
   };
 }
@@ -158,7 +157,7 @@ describe('formatExportMedications', () => {
   });
 });
 
-describe('formatExportVitals', () => {
+describe('compact cells', () => {
   it('labels vitals shortly and converts to the user system', () => {
     expect(
       formatExportVitals(
@@ -189,21 +188,15 @@ describe('formatExportVitals', () => {
 
   describe('formatExportAttachments', () => {
     it('is empty when a record has no files', () => {
-      expect(formatExportAttachments(0, [])).toBe('');
+      expect(formatExportAttachments([])).toBe('');
     });
 
-    it('counts the files and names up to three of them', () => {
-      expect(formatExportAttachments(1, ['report.pdf'])).toBe('1 file: report.pdf');
-      expect(formatExportAttachments(2, ['report.pdf', 'scan.jpg'])).toBe(
-        '2 files: report.pdf, scan.jpg',
+    it('counts the files and groups them by role', () => {
+      expect(formatExportAttachments(['lab_report'])).toBe('1 file: 1 lab report');
+      expect(formatExportAttachments(['lab_report', 'lab_report', 'prescription'])).toBe(
+        '3 files: 1 prescription, 2 lab reports',
       );
-      expect(formatExportAttachments(5, ['a.pdf', 'b.pdf', 'c.pdf', 'd.pdf', 'e.pdf'])).toBe(
-        '5 files: a.pdf, b.pdf, c.pdf +2',
-      );
-    });
-
-    it('falls back to a count when the names were not loaded', () => {
-      expect(formatExportAttachments(3, [])).toBe('3 files');
+      expect(formatExportAttachments(['other', 'other'])).toBe('2 files: 2 other files');
     });
   });
 
@@ -239,14 +232,13 @@ describe('formatExportVitals', () => {
         ],
         medications: [{ name: 'Metformin', dose: '500 mg', frequency: 'daily' }],
         measurements: [{ kind: 'weight', v1: 70, v2: null }],
-        attachmentCount: 1,
-        attachmentNames: ['report.pdf'],
+        attachmentRoles: ['lab_report'],
       });
       expect(exportCell('readings', full, metric)).toBe('Hb 13.5 g/dL (13–17)');
       expect(exportCell('medications', full, metric)).toBe('Metformin 500 mg, daily');
       expect(exportCell('vitals', full, metric)).toBe('Weight 70 kg');
       expect(exportCell('vitals', full, imperial)).toBe('Weight 154.3 lb');
-      expect(exportCell('attachments', full, metric)).toBe('1 file: report.pdf');
+      expect(exportCell('attachments', full, metric)).toBe('1 file: 1 lab report');
     });
 
     it('handles Unicode and hostile text without changing it', () => {

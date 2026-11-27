@@ -37,6 +37,7 @@ function readColumnNames(statement: StatementSync): string[] {
  * extensions, web helpers) would be noise.
  */
 function createClient(raw: DatabaseSync) {
+  let prepared = 0;
   return {
     execSync(source: string): void {
       raw.exec(source);
@@ -55,7 +56,10 @@ function createClient(raw: DatabaseSync) {
         throw error;
       }
     },
+    /** Statements Drizzle has prepared since the database was opened (ADR-019). */
+    statementCount: () => prepared,
     prepareSync(source: string) {
+      prepared += 1;
       const statement = raw.prepare(source);
       let cachedColumns: string[] | undefined;
       const columnNames = (): string[] => {
@@ -94,6 +98,8 @@ function createClient(raw: DatabaseSync) {
 export interface TestDatabase {
   readonly db: ExpoSQLiteDatabase<typeof schema>;
   readonly raw: DatabaseSync;
+  /** Prepared statements so far — lets a test assert that a bulk read is not N+1. */
+  readonly statementCount: () => number;
   close(): void;
 }
 
@@ -105,7 +111,13 @@ export function createEmptyTestDatabase(): TestDatabase & {
   const client = createClient(raw);
   client.execSync('PRAGMA foreign_keys = ON;');
   const db = drizzle(client as unknown as SQLiteDatabase, { schema });
-  return { db, raw, client, close: () => raw.close() };
+  return {
+    db,
+    raw,
+    client,
+    statementCount: client.statementCount,
+    close: () => raw.close(),
+  };
 }
 
 /** A database migrated to the latest schema, ready for repository tests. */
@@ -116,5 +128,10 @@ export function createTestDatabase(): TestDatabase {
     empty.close();
     throw new Error(`Test database migration failed: ${migrated.error.detail}`);
   }
-  return { db: empty.db, raw: empty.raw, close: empty.close };
+  return {
+    db: empty.db,
+    raw: empty.raw,
+    statementCount: empty.statementCount,
+    close: empty.close,
+  };
 }

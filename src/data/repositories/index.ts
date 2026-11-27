@@ -27,6 +27,12 @@ export {
 export { type AppRepositories, createRepositories } from './createRepositories';
 export { defaultRepositoryDeps, type RepositoryDeps } from './deps';
 export { type DoctorInput, type DoctorRepository } from './doctorRepository';
+export {
+  EXPORT_QUERY_CHUNK,
+  type ExportRecord,
+  type ExportRecordFilter,
+  type ExportRepository,
+} from './exportRepository';
 export { type MeasurementInput, type MeasurementRepository } from './measurementRepository';
 export { type MedicationPatch, type MedicationRepository } from './medicationRepository';
 export { type NewPersonInput, type PersonPatch, type PersonRepository } from './personRepository';
@@ -52,6 +58,9 @@ export {
 } from './recordRepository';
 export {
   type AppSettings,
+  DEFAULT_EXPORT_PREFERENCES,
+  type ExportFilterPreference,
+  type ExportPreferences,
   MAX_DRAFT_LENGTH,
   SETTING_KEYS,
   type SettingsRepository,

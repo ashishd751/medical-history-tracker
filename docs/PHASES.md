@@ -61,10 +61,17 @@ approval. Never start the next phase unprompted.
 
 ## Phase 3 — Profile and measurements (MVP)
 
-- [ ] Measurement history, BMI, BP categories, current-medication rule
-- [ ] `computeProfileDiff` + "Profile updated" sheet with Undo
-- [ ] Blood-type confirmation, backdated-record behaviour
-- [ ] Profile screen with history
+- [x] Measurement history, BMI, BP categories, current-medication rule
+      — `profileRepository.snapshot()` derives everything from `measurement` rows; `listCurrent` now
+      applies the end-date rule (ADR-038, ADR-043).
+- [x] `computeProfileDiff` + "Profile updated" sheet with Undo
+      — Undo flags rows out of the profile instead of deleting them (ADR-039 to ADR-041).
+- [x] Blood-type confirmation, backdated-record behaviour
+      — a recorded group is only replaced after an explicit confirmation (ADR-044).
+- [x] Profile screen with history
+      — kind picker, trend from plain Views, standalone measurements with delete (ADR-045).
+      Verified on the iOS simulator and the Android emulator; see `docs/PHASE3-PROGRESS.md` for the
+      per-item results and the two remaining large-text truncations (Phase 8).
 
 ## Phase 4 — PDF export
 

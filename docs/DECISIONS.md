@@ -880,3 +880,162 @@ when someone bumps that pin deliberately.
 package versions means both development builds must be rebuilt (`expo prebuild` + `pod install`;
 `./gradlew assembleDebug`) before device results are trusted again; the Phase 2 device evidence was
 recorded against `expo@58.0.26`.
+
+## ADR-038 The profile is a derived snapshot, and changes are a pure diff
+
+**Context.** The product brief asks for a profile that shows the newest height, weight, derived BMI,
+last blood pressure, blood type and current medication, and for a sheet that says what changed after
+a save. It also says a backdated record must not overwrite a newer value.
+
+**Decision.** Nothing about the profile is stored. `src/domain/profile.ts` defines `ProfileSnapshot`
+and `buildProfileSnapshot()`, and `ProfileRepository.snapshot(personId, { today, bmiPreset })`
+assembles it from the newest non-excluded `measurement` row per kind, the person's `blood_type` and
+`listCurrent()` medication. Home and Profile both read that one query, so they cannot disagree
+(section 4.3 of the phase brief). `computeProfileDiff(before, after)` is pure and returns typed
+`ProfileChange` rows in metric; `formatProfileChange()` in `src/ui` is the only code that knows about
+the unit setting, so comparisons never depend on it.
+
+Equality has tolerances, because a difference the user cannot see is not news: **0.05 kg** for
+weight, **0.5 cm** for height (a tenth of an inch, since height is entered in inches under the
+imperial setting), blood pressure compared as rounded integers, and BMI compared at the one decimal
+place the UI shows. A blood pressure that repeats the same numbers on a later date is _not_ a change
+(the number is what the profile shows); the date still moves in the snapshot. BMI appears as its own
+row when it moves, so the user sees the consequence of a weight change, and it is never stored.
+
+**Consequences.** Backdating is safe by construction rather than by a rule someone must remember. A
+diff is a value, so it can be tested exhaustively (24 cases in `profile.test.ts`) and reused by the
+Phase 4 PDF header. A change of unit system re-renders the same diff correctly.
+
+## ADR-039 Undo takes rows out of the profile instead of deleting them
+
+**Context.** The brief's wording for Undo ("removes the derived measurement … but keeps the record")
+would delete the record's own vitals, leaving a record that displays a weight its own form no longer
+has.
+
+**Decision.** Migration v3 adds `profile_excluded INTEGER NOT NULL DEFAULT 0` to `measurement` and
+`medication`. Undo sets it for the rows the save contributed: the profile is derived again without
+them, while the record keeps its values and the history keeps the row (marked "Not in profile" with
+a badge). The flag is forward-only and one-way; re-including a row is not offered, because the row
+is still editable through its record and a second flag flip would make the state harder to explain
+than to re-enter.
+
+**Consequences.** Undo is exact for a **new** record (the rows did not exist before) and for
+newly-added medication. The alternative — deleting rows — would have made "Undo" destroy the data
+the user had just typed, which is the one thing it must not do. `latest()` filters excluded rows, so
+a flagged row can never win; `listByKind()` keeps returning it so the history can show it.
+
+## ADR-040 The pending change lives in a module store, and the sheet is hosted at the shell level
+
+**Context.** After Save the form navigates to the record's detail screen (and after a delete it goes
+back), so the screen that produced the change is gone before the sheet can be shown.
+
+**Decision.** `src/lib/profileChangeStore.ts` holds one `ProfileChangeReport` in memory and exposes
+`useProfileChange()` over `useSyncExternalStore`. `ProfileChangeHost` renders the sheet once, in
+`app/_layout.tsx` above the navigator. Zustand is installed but stays unused: one value read through
+`useSyncExternalStore` is a dozen lines, has no provider, and is trivially testable. The store is
+deliberately not persisted — a sheet that reappeared days later would offer an undo nobody connects
+to anything.
+
+**Consequences.** The sheet survives the navigation that follows the save, a second save replaces it
+rather than stacking, and an app kill loses only the sheet (the data is already committed). No new
+dependency.
+
+## ADR-041 Edit and delete show the sheet, but Undo is offered only where it is exact
+
+**Context.** The brief wants the sheet after an edit and after a delete, and says a delete shows it
+"without Undo and say why". An edit replaces the record's measurement rows wholesale, so there is
+nothing left to restore.
+
+**Decision.** The report carries `undo` (a plan) _or_ `undoUnavailable: 'edit' | 'delete'`, never
+both. A new record gets the plan; an edit and a delete get the matching explanation ("Editing a
+record replaced its earlier values, so this change cannot be undone here. Edit the record to change
+it again." / "The record and its values were deleted, so the profile went back to what it held
+before. There is nothing to keep."). A save that changes nothing publishes `null`, which also clears
+any sheet left over from an earlier save.
+
+**Consequences.** Undo never leaves the profile in a state the user did not ask for, and the two
+"no undo" cases explain themselves instead of showing a disabled button. Verified on both platforms
+(item 3 of the device checklist).
+
+## ADR-042 Sheets, grids and dialogs at large text and with the keyboard open
+
+**Context.** The add-measurement sheet has seven kind pills, two fields, a date and a primary
+button. On the Android emulator the button sat behind the software keyboard; at the largest iOS
+accessibility text size the pills rendered as "H…", "W…" and the record form's Save label
+truncated.
+
+**Decision.** Four small changes in `src/ui`: `AppSheet` wraps its content in a
+`KeyboardAvoidingView` (`padding` on iOS, `height` on Android, whose Modal window does not resize);
+`AppChoiceGrid` allows two lines per pill, so a wrapped word stays readable; `AppDialog`'s action
+row wraps, so a long confirm label moves to its own line instead of being clipped (the blood-type
+dialog also uses the short labels "Change" and "Clear"); and a list row's subtitle gets three lines
+while its accessibility label reads "value, source, date" instead of just the value.
+
+**Consequences.** Verified on both platforms at 360 dp / font scale 1.3 and at iOS accessibility XL.
+Two truncations remain at the extreme size — the "Glucose" pill and the record form's
+"Vitals · Height (cm)" label — and are listed for the Phase 8 accessibility audit.
+
+## ADR-043 "Current medication" is one rule, with today injected
+
+**Context.** `listCurrent` filtered on `status = 'ongoing'` only, so a medication whose end date had
+passed still appeared on Home.
+
+**Decision.** `isCurrentMedication({ status, endOn }, today)` in the domain is the definition:
+ongoing, and either no end date or an end date on or after today. The repository's SQL matches it
+(`end_on IS NULL OR end_on >= ?`), takes `today` as an argument defaulting to the device's local
+date, and a test asserts the two agree row by row. Rows an undo excluded are left out here too
+(ADR-039).
+
+**Consequences.** A medication that ends today is still current; one that ended yesterday is not,
+even if its status was never changed. "Today" is the device's local calendar date, never UTC. The
+app has **no screen that sets an end date** in this phase — the column, the rule and its tests
+exist for Phase 5/6 to use.
+
+## ADR-044 A recorded blood type is never replaced without confirmation
+
+**Context.** A blood type is the one profile value where a wrong number has consequences in an
+emergency, and Phase 6 will let a scanned document propose one.
+
+**Decision.** `requiresBloodTypeConfirmation(previous, next)` is true whenever a value is already
+recorded and the new value differs — including clearing it. Setting a blood type for the first time
+is silent. `AppBloodTypeDialog` is a presentational, reusable component; the rule lives in the
+domain so Phase 6 applies exactly the same test. Because a Paper dialog renders into the app window
+and the edit sheet is a `Modal` above it, the sheet closes while the question is asked and reopens
+afterwards with the rest of the draft intact.
+
+**Consequences.** Cancel keeps the recorded value and returns to the sheet. Verified on both
+platforms (item 5).
+
+## ADR-045 Standalone measurements: added on Profile, edited in their record
+
+**Context.** The Profile screen could not change height or weight; the brief asks for an
+"Add measurement" action and a deletable history.
+
+**Decision.** "Add measurement" opens a sheet with a kind picker, the value(s) in the user's units
+and a date defaulting to today. `toMeasurementSubmission()` converts to metric **before**
+range-checking against `src/domain/limits.ts`. A row created this way has no `record_id`, so the
+history offers Delete (with confirmation); a row that came from a record shows "From record", opens
+that record when tapped, and has no Delete — its value is edited there, which keeps one owner per
+number. The trend is a row of plain `View` bars (no charting dependency); the values it stands for
+are all listed below it.
+
+**Consequences.** The profile can be corrected without inventing a record, and a record's own vitals
+can never be edited from two places.
+
+## ADR-046 Real-device findings that changed the UI
+
+**Context.** Driving Phase 3 on the simulator and the emulator exposed four things Jest could not.
+
+**Decision.**
+
+1. "Edit profile" moved from the header's right corner into the body: the dev client draws its
+   floating menu button exactly there, so the tap opened the dev menu instead (the same fix
+   `RecordDetailScreen` needed in Phase 2).
+2. A confirmation dialog cannot be raised from inside a sheet (see ADR-044).
+3. The sheet's keyboard handling and the large-text wrapping are in ADR-042.
+4. A list row's accessibility label includes its subtitle and date; a row that only announced
+   "70 kg" hid both where the value came from and when.
+
+**Consequences.** Everything above was re-verified on both platforms afterwards. The dev-menu
+collision only affects development builds, but moving the button also gives the primary action a
+full-width target on a phone.

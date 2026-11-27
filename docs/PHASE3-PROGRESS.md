@@ -29,7 +29,7 @@ npm run typecheck && npm run lint && npm run deps:check && npm run format:check 
 - [x] **T7** Home consistency from the same snapshot source. Tests.
 - [x] **T8** Maestro flows (weight change → sheet → Undo; backdated → no sheet) if stable on both.
 - [x] **T9** Verification on the iOS simulator **and** the Android emulator (section 6 of the handoff).
-- [ ] **T10** Docs: ADR-038 onward, `PHASES.md`, `README.md`, `ARCHITECTURE.md`, `TESTING.md`,
+- [x] **T10** Docs: ADR-038 onward, `PHASES.md`, `README.md`, `ARCHITECTURE.md`, `TESTING.md`,
       `.maestro/README.md`.
 - [ ] **T11** Final gate (`npm run doctor` too) and the report.
 
@@ -64,6 +64,8 @@ npm run typecheck && npm run lint && npm run deps:check && npm run format:check 
 | 10  | Phase 1 five-minute smoke; attach an image and delete the record (files go)           | Phase 1 flow PASS. Attachment: the photo picker now presents (better than Phase 2) but the selection could not be driven — the dev client's floating button intercepts taps in the picker. **Not verified.** | Phase 1 flow PASS. Attachment PASS end to end: picked `portrait-exif6.jpg`, 1 row stored (115 KB, 64-char sha256), preview/thumb on disk, then delete → 0 rows and no files left. |
 
 Caveats for item 8: at the largest iOS accessibility size the seven-kind pill "Glucose" ellipsises to "Glu co…" (the one remaining truncation; the sheet, the "Profile updated" sheet, the history rows and both dialogs render fully), and the record form's "Vitals · Height (cm)" field label truncates — both are Phase 8 accessibility work. Two layout fixes were made because of this item: the dialog action row wraps at large text, and a list row's subtitle gets three lines.
+
+| T10 | ADR-038 to ADR-046 in `docs/DECISIONS.md`; Phase 3 ticked in `docs/PHASES.md`; `README.md` status; a "Profile and measurements (Phase 3)" section plus the state note in `docs/ARCHITECTURE.md`; a Phase 3 manual checklist and a refreshed "known gaps" in `docs/TESTING.md`; the flow traps in `.maestro/README.md`. `npm run format:check` clean. |
 
 ### T0 baseline gate output
 

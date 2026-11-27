@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
-import { useMemo } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { useMemo, useState } from 'react';
+import { ScrollView, StyleSheet, View } from 'react-native';
 
 import { requireRepositories } from '@/data';
 import { formatDisplayDate, todayIso } from '@/lib/dates';
@@ -14,6 +14,7 @@ import {
   AppListRow,
   AppScreen,
   AppSectionHeader,
+  AppSheet,
   AppText,
   recordKindLabel,
   spacing,
@@ -21,6 +22,21 @@ import {
 } from '@/ui';
 
 import { SnapshotCard } from './SnapshotCard';
+
+/**
+ * How many medication chips Home shows before it stops.
+ *
+ * A family member can be on a dozen medications, and one chip per drug pushed Recent records off the
+ * screen entirely (each chip is a full-height pill). Two rows are enough to recognise what is being
+ * taken; the section header's "View all" opens the rest in a sheet, so the page length no longer
+ * depends on how many medications exist.
+ */
+const VISIBLE_MEDICATIONS = 4;
+
+/** Two rows can share a name (a dose change is a new row); a chip only shows the name. */
+function uniqueMedicationNames(names: readonly string[]): string[] {
+  return [...new Set(names)];
+}
 
 /** Home: the health snapshot, current medication and the most recent records. */
 export function HomeScreen() {
@@ -46,6 +62,8 @@ export function HomeScreen() {
     enabled: id !== '',
   });
 
+  const [showAllMedications, setShowAllMedications] = useState(false);
+
   if (!personId) {
     return (
       <AppScreen title={strings.app.name}>
@@ -55,7 +73,11 @@ export function HomeScreen() {
   }
 
   const snapshot = profile.data ?? null;
-  const medications = snapshot?.medications ?? [];
+  const medicationNames = uniqueMedicationNames(
+    (snapshot?.medications ?? []).map((medication) => medication.name),
+  );
+  const visibleMedications = medicationNames.slice(0, VISIBLE_MEDICATIONS);
+  const hasMoreMedications = medicationNames.length > VISIBLE_MEDICATIONS;
 
   return (
     <AppScreen title={strings.home.greeting(personName)} testID="screen-home">
@@ -87,11 +109,16 @@ export function HomeScreen() {
         </View>
       ) : null}
 
-      <AppSectionHeader title={strings.home.currentMedications} />
-      {medications.length > 0 ? (
+      <AppSectionHeader
+        title={strings.home.currentMedications}
+        actionLabel={hasMoreMedications ? strings.home.viewAll : undefined}
+        onAction={hasMoreMedications ? () => setShowAllMedications(true) : undefined}
+        testID="current-medications-header"
+      />
+      {medicationNames.length > 0 ? (
         <View style={styles.chips} testID="current-medications">
-          {medications.map((medication) => (
-            <AppChip key={medication.id} label={medication.name} />
+          {visibleMedications.map((name) => (
+            <AppChip key={name} label={name} />
           ))}
         </View>
       ) : (
@@ -99,6 +126,28 @@ export function HomeScreen() {
           {strings.home.noMedications}
         </AppText>
       )}
+
+      {/* The full list lives in a sheet with its own scroll, so a dozen medications cannot stretch
+          Home and push Recent records off the screen. */}
+      <AppSheet
+        visible={showAllMedications}
+        onDismiss={() => setShowAllMedications(false)}
+        title={strings.home.currentMedications}
+        testID="medications-sheet"
+      >
+        <ScrollView contentContainerStyle={styles.sheetList} testID="medications-sheet-list">
+          {medicationNames.map((name) => (
+            <AppChip key={name} label={name} />
+          ))}
+        </ScrollView>
+        <AppButton
+          label={strings.common.close}
+          variant="secondary"
+          onPress={() => setShowAllMedications(false)}
+          fullWidth
+          testID="close-medications"
+        />
+      </AppSheet>
 
       <AppSectionHeader
         title={strings.home.recentRecords}
@@ -147,6 +196,8 @@ export function HomeScreen() {
 
 const styles = StyleSheet.create({
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+  /** A long medication list scrolls inside the sheet instead of growing the screen. */
+  sheetList: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, paddingBottom: spacing.sm },
   list: { gap: spacing.sm },
   actions: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
 });

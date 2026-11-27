@@ -1164,3 +1164,30 @@ It is recorded as skipped in `docs/PHASE4-PROGRESS.md` rather than half-built.
 
 **Consequences.** The user sees exactly what will be exported before generating it, and the screen
 has no platform-specific branch.
+
+## ADR-052 Two device-review fixes: Home's medication list and the record's type
+
+**Context.** Reviewing Phase 4 on the simulator exposed two layout problems that no test caught.
+
+1. **Home grew with the medication list.** One chip per current medication meant that a person on a
+   dozen drugs saw twelve full-height pills, pushing "Recent records" (and the Export/Back up
+   buttons) off the screen. Two rows can also share a name, and two identical chips are noise.
+2. **The record type floated above the date.** The detail screen's first row was
+   `[badge][date][spacer][Edit]` with `alignItems: 'center'`, but `AppBadge` carries
+   `alignSelf: 'flex-start'` (it is designed to hug the top of a card), so the badge ignored the
+   row's centring and sat above the date — visible at every text size.
+
+**Decision.**
+
+- Medication chips are **deduplicated by name and capped at four** (`VISIBLE_MEDICATIONS`). When
+  more exist, the section header gains the same "View all" action "Recent records" already uses, and
+  it opens a bottom sheet with the full, scrollable list and a Close button. Home's height no longer
+  depends on how many medications the person takes; the sheet is where the whole list lives.
+- The record type **moved into `AppScreen`'s eyebrow**, above the title, and the row below is just
+  the date and Edit. The eyebrow is the app's existing slot for a category caption, so the type
+  reads as metadata instead of competing with the date. `AppBadge` is untouched: other screens rely
+  on its top-hugging behaviour.
+
+**Consequences.** Verified on both platforms by reading the rendered bounds: iOS
+`Doctor visit` y = 122–140, title y = 142–178, date and Edit both y = 207–227; Android 300–348,
+353–448, and 523–576 / 524–577. Home shows four chips plus "View all" with six medications seeded.

@@ -128,3 +128,21 @@ $ npm run doctor
 ```
 
 Baseline at T0 was 44 suites / 312 tests; Phase 4 adds 10 suites and 148 tests.
+
+## Review fixes after the gate (branch still open)
+
+Two layout problems found by reading the screens on the simulator, fixed and verified on both
+platforms (ADR-052):
+
+- **Home: the medication list is bounded.** Names are deduplicated and only four chips are shown;
+  the section header gains "View all", which opens the full list in a scrollable sheet with a Close
+  button. With six seeded medications Home shows two rows of chips and "Recent records" is back on
+  the first screen (previously a dozen pills pushed it off).
+- **Record detail: the type is the eyebrow.** `AppBadge` carries `alignSelf: 'flex-start'`, so in the
+  centred row it floated above the date. The type now sits above the title as the screen's eyebrow,
+  and the row below is only the date and Edit. Verified from the rendered bounds on both platforms:
+  iOS `Doctor visit` 122–140, title 142–178, date 207–227, Edit 207–227; Android 300–348, 353–448,
+  date 523–576, Edit 524–577.
+
+`npx jest src/features/home` → 2 suites / 6 tests (three new: cap + sheet, short list, duplicate
+name). Full gate after the fixes: **54 suites / 463 tests**, `expo-doctor` 20/20.

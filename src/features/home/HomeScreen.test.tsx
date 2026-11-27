@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, waitFor } from '@testing-library/react-native';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import type { AppRepositories, PersonRow } from '@/data';
@@ -119,5 +119,60 @@ describe('HomeScreen', () => {
 
     expect(await screen.findByText(strings.home.noMedications)).toBeTruthy();
     expect(screen.queryByTestId('current-medications')).toBeNull();
+  });
+
+  it('caps the medication chips and opens the full list in a sheet', async () => {
+    const names = ['Med A', 'Med B', 'Med C', 'Med D', 'Med E', 'Med F'];
+    snapshotOf.mockReturnValue({
+      ...snapshot,
+      medications: names.map((name, index) => ({ id: `m${index}`, name })),
+    });
+    await renderHome();
+    await waitFor(() => expect(screen.getByText('Med A')).toBeTruthy());
+
+    // Four chips, then stop: the sixth drug must not push Recent records off the screen.
+    expect(screen.getByText('Med D')).toBeTruthy();
+    expect(screen.queryByText('Med E')).toBeNull();
+    expect(screen.queryByText('Med F')).toBeNull();
+
+    // Both this section and "Recent records" offer a View all action.
+    expect(screen.getAllByText(strings.home.viewAll)).toHaveLength(2);
+    await fireEvent.press(
+      screen.getAllByText(strings.home.viewAll)[0] ?? screen.getByText('Med A'),
+    );
+
+    expect(screen.getByTestId('medications-sheet')).toBeTruthy();
+    expect(screen.getByText('Med E')).toBeTruthy();
+    expect(screen.getByText('Med F')).toBeTruthy();
+  });
+
+  it('shows every chip and no View all while the list is short', async () => {
+    snapshotOf.mockReturnValue({
+      ...snapshot,
+      medications: [
+        { id: 'm1', name: 'Med A' },
+        { id: 'm2', name: 'Med B' },
+      ],
+    });
+    await renderHome();
+    await waitFor(() => expect(screen.getByText('Med A')).toBeTruthy());
+
+    expect(screen.getByText('Med B')).toBeTruthy();
+    // Only "Recent records" keeps its View all.
+    expect(screen.getAllByText(strings.home.viewAll)).toHaveLength(1);
+  });
+
+  it('shows a repeated medication name once', async () => {
+    snapshotOf.mockReturnValue({
+      ...snapshot,
+      medications: [
+        { id: 'm1', name: 'Synthetic Metformin' },
+        { id: 'm2', name: 'Synthetic Metformin' },
+      ],
+    });
+    await renderHome();
+    await waitFor(() => expect(screen.getByText('Synthetic Metformin')).toBeTruthy());
+
+    expect(screen.getAllByText('Synthetic Metformin')).toHaveLength(1);
   });
 });

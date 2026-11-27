@@ -1,0 +1,53 @@
+# Phase 3 — Profile and measurements: progress
+
+Working branch: `feat/phase-3-profile` (from `main` at `50ade44`).
+
+Rules for this file: one tick per finished task, with one line of **evidence** (the command and its
+result, or the file that proves it). A task is not ticked until its gate has run **and**, for anything
+that touches UI, files or native modules, it has been exercised on the iOS simulator and the Android
+emulator. If a check fails or cannot be run, the box stays unticked and the reason is written under it.
+If a session runs out of context, the next session resumes from the first unticked box.
+
+Gate for every commit:
+
+```bash
+npm run typecheck && npm run lint && npm run deps:check && npm run format:check && npm test
+```
+
+## Checklist
+
+- [ ] **T0** Branch, this file, baseline gate (expect 36 suites / 224 tests), commit.
+- [ ] **T1** Domain: `ProfileSnapshot`, `computeProfileDiff`, `isCurrentMedication`,
+      `requiresBloodTypeConfirmation`, display formatters, matrix tests.
+- [ ] **T2** Data: `listCurrent` end-date rule, history/snapshot queries, `profileRepository`,
+      migration v3 (`profile_excluded`) with the version matrix. Real-SQLite tests.
+- [ ] **T3** Profile-sync feature service: capture before, diff after, publish the change, undo;
+      wired into record create, edit and delete. Real-SQLite tests.
+- [ ] **T4** "Profile updated" sheet, transient store, shell host, Undo behaviour. Component tests.
+- [ ] **T5** Blood-type confirmation dialog, wired into the Profile edit sheet. Tests.
+- [ ] **T6** Profile screen: measurement history, trend, add and delete standalone measurements. Tests.
+- [ ] **T7** Home consistency from the same snapshot source. Tests.
+- [ ] **T8** Maestro flows (weight change → sheet → Undo; backdated → no sheet) if stable on both.
+- [ ] **T9** Verification on the iOS simulator **and** the Android emulator (section 6 of the handoff).
+- [ ] **T10** Docs: ADR-038 onward, `PHASES.md`, `README.md`, `ARCHITECTURE.md`, `TESTING.md`,
+      `.maestro/README.md`.
+- [ ] **T11** Final gate (`npm run doctor` too) and the report.
+
+## Evidence log
+
+| Task | Evidence                                                                                                                                                                                               |
+| ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| T0   | `git checkout -b feat/phase-3-profile` from `50ade44`; baseline gate green: `✔ no dependency violations found (153 modules, 365 dependencies cruised)`, `Test Suites: 36 passed`, `Tests: 224 passed`. |
+
+### T0 baseline gate output
+
+```
+EXIT=0
+Test Suites: 36 passed, 36 total
+Tests:       224 passed, 224 total
+✔ no dependency violations found (153 modules, 365 dependencies cruised)
+```
+
+## Decisions taken without asking
+
+_(each one links to its ADR once written)_

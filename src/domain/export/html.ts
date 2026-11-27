@@ -13,7 +13,7 @@
  * - portrait up to five columns, landscape beyond that (the caller also passes the matching page
  *   size to the printer — CSS `@page` alone is not enough on iOS).
  */
-import { columnWidths, type ExportColumnId, orientationFor } from './model';
+import { columnWidths, type ExportColumnId, orientationFor, rowsPerPageFor } from './model';
 
 /** An empty cell is a dash, never a blank that reads like a rendering bug. */
 export const EMPTY_CELL = '—';
@@ -118,6 +118,9 @@ body {
 .summary { margin: 4pt 0 0; font-size: 8.5pt; }
 .exported { margin: 1pt 0 0; font-size: 7.5pt; color: #555555; }
 table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+/* Every page is its own table, so this only helps a chunk that overflows: its rows still must not
+   split, and its own thead is above them. */
+table.page { break-before: page; page-break-before: always; }
 thead { display: table-header-group; }
 tfoot { display: table-footer-group; }
 tr { break-inside: avoid; page-break-inside: avoid; }
@@ -181,14 +184,27 @@ export function buildExportHtml(model: ExportHtmlModel): string {
     )
     .join('');
 
+  /**
+   * One table per page, not one table across pages.
+   *
+   * iOS's print renderer does not repeat `thead` (ADR-048), so the header row is guaranteed here by
+   * giving every page its own table with its own header and footer, separated by a forced break.
+   */
+  const rowsPerPage = rowsPerPageFor(model.columns.length);
+  const pageTables: string[] = [];
+  for (let start = 0; start < body.length; start += rowsPerPage) {
+    const chunk = body.slice(start, start + rowsPerPage);
+    pageTables.push(`<table${start === 0 ? '' : ' class="page"'}>
+  <thead><tr>${head}</tr></thead>
+  <tfoot><tr><td class="disclaimer" colspan="${columnCount}">${escapeHtml(model.disclaimer)}</td></tr></tfoot>
+  <tbody>${chunk.join('')}</tbody>
+</table>`);
+  }
+
   const table =
     model.rows.length === 0
       ? `<p class="empty">${escapeHtml(model.emptyMessage)}</p>`
-      : `<table>
-  <thead><tr>${head}</tr></thead>
-  <tfoot><tr><td class="disclaimer" colspan="${columnCount}">${escapeHtml(model.disclaimer)}</td></tr></tfoot>
-  <tbody>${body.join('')}</tbody>
-</table>`;
+      : pageTables.join('\n');
 
   return `<!DOCTYPE html>
 <html lang="en">

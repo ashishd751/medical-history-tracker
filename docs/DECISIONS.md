@@ -1039,3 +1039,128 @@ can never be edited from two places.
 **Consequences.** Everything above was re-verified on both platforms afterwards. The dev-menu
 collision only affects development builds, but moving the button also gives the primary action a
 full-width target on a phone.
+
+## ADR-047 Where the PDF export lives, and the one column added to FR-10
+
+**Context.** The export needs a table model, compact cell text, an HTML document and an
+orchestrating service. The domain layer owns no user-facing string, but every cell needs unit
+symbols, enum labels and `DD/MM/YYYY`.
+
+**Decision.**
+
+- `src/domain/export/` owns the **layout**: `EXPORT_COLUMN_IDS` and their canonical order, the six
+  defaults, normalisation of a stored selection, the A4 page sizes and the portrait/landscape rule,
+  the sort comparator, the per-page row budget, `escapeHtml`/`textToHtml` and `buildExportHtml(model)`.
+  `model` carries already-rendered strings, so the builder never needs a label.
+- `src/features/export/exportFormat.ts` owns the **text**: the compact reading (`Hb 13.5 g/dL (13–17)`,
+  `LDL 142 mg/dL (70–100) — High`), vitals, medications, symptoms, the attachment roles and the
+  profile facts. It is a feature module because it imports `src/ui` formatters — the same split the
+  profile already uses (domain derives, `ui/format.ts` renders).
+- A High/Low reading is written as the word; `Normal` and `Not flagged` are omitted, because on a
+  compact page they bury the two results that matter. Colour is never the signal.
+- **A thirteenth, optional column `title` (`Record`) is added.** FR-10's list omits the record's own
+  title, which is the only field that names a lab panel or a vaccination, so the default export of a
+  `lab_test` would not say what was tested. The default set is still exactly FR-10's six.
+- The attachments column reports **roles** (`2 files: 1 prescription, 1 lab report`) rather than file
+  names: a stored file's name is a generated id, and the original name is not kept (ADR-030).
+
+**Consequences.** The HTML builder is a pure function with hostile-input tests; the formatters are
+tested against the profile snapshot in the user's units. Adding a column is one entry in the id
+tuple plus a label and a weight.
+
+## ADR-048 Printing: A4, page size, and why the PDF is paginated by hand
+
+**Context.** `expo-print ~58.0.9` writes HTML to a PDF in the cache. Its options are
+`{ html, width, height, margins, base64, textZoom, useMarkupFormatter }`; `orientation` exists only
+on `printAsync` and only on iOS. FR-10 wants A4, portrait up to five columns, landscape beyond, a
+header row on **every** page and no row split across pages.
+
+**Decision.**
+
+- **A4**, defined once as 595 × 842 pt (portrait) and 842 × 595 pt (landscape) at 72 PPI, and passed
+  as `width`/`height` to `printToFileAsync` — the only page-size control that behaves the same on
+  both platforms. CSS carries `@page { size: A4 <orientation>; margin: 10mm 8mm }` as well.
+- **The document is paginated in the builder**, one `<table>` per page, each with its own `<thead>`
+  and `<tfoot>`, separated by `break-before: page`. Reason, measured on the iOS simulator:
+  WKWebView's print renderer **does not repeat `thead`** on later pages, so a single long table
+  printed pages 2–6 of a 120-record export with **no column headers at all**. Android (Chrome's
+  print path) does repeat them, but relying on that would give two different documents.
+- Budgets are 14 rows landscape, 16 portrait — below the ~20–24 rows a page physically holds, so a
+  page cannot overflow and lose its header. The cost is white space at the bottom of each page.
+- `tr { break-inside: avoid; page-break-inside: avoid }` keeps a record whole.
+- **Limitations, recorded rather than worked around:** `FilePrintResult.numberOfPages` is correct on
+  iOS and **always 1 on Android** (a 72-page export reported 1), so the UI never shows a page count;
+  there are no page numbers (neither engine supports `@page` margin boxes); the profile header
+  appears on page 1 only.
+
+**Consequences.** Verified with 1,000 records on both platforms: 72 pages each, 72 header rows, 72
+footers, 1,000 rows, every page after the first starting with the header (see
+`docs/PHASE4-PROGRESS.md`).
+
+## ADR-049 The exported file's name and lifecycle
+
+**Context.** `printToFileAsync` writes `<uuid>.pdf` into the cache. The file contains the family's
+medical history in plain text; this repository is public and the phone is the only copy.
+
+**Decision.** `src/platform/exportFiles.ts` is the only module that touches an export's file:
+
+1. `adopt(tempUri, fileName)` moves the printer's file to
+   `cache/exports/medical-history-<person-slug>-YYYYMMDD.pdf` (the slug is ASCII-only, capped at 40
+   characters, and `person` for a name with no Latin form, so it can never contain a path separator);
+2. `clearPrevious()` deletes every file in `cache/exports/` and never throws.
+
+`clearPrevious()` runs **at launch** (beside the attachment sweep, in `AppProviders`) and **again
+before every new export** — never after `adopt`, which would delete the file about to be shared. So
+at most one exported PDF exists on the device, and only until the next launch. The cache (not the
+documents directory) is deliberate: the OS may reclaim it, and nothing there is a source of truth.
+Sharing hands a copy to another app, which this app cannot delete.
+
+**Consequences.** `docs/PRIVACY.md` states this. Verified on both platforms: the startup log
+`Removed earlier PDF exports {"files": 1}` after a relaunch, and the folder empty at launch.
+
+## ADR-050 The exported preferences' shape
+
+**Context.** The column choice, sort order and last filters must survive a relaunch, and a corrupted
+value must never break the screen.
+
+**Decision.** One JSON row under `settings.exportPreferences`:
+
+```json
+{
+  "columns": ["date", "symptoms"],
+  "sortOrder": "newest",
+  "filter": { "from": null, "to": null, "kinds": [] }
+}
+```
+
+- Validated with Zod on read; **a value that fails any part falls back to the defaults as a whole**
+  and logs one warning. Half-applying a damaged preference is worse than forgetting it.
+- A selection is normalised on read _and_ on write: unknown ids dropped, duplicates removed, the
+  canonical table order restored. An empty selection becomes the six defaults; the screen also
+  refuses to remove the last column.
+- **Only the two dates are stored, not the preset** ("last 30 days" is saved as the concrete range).
+  On relaunch a stored range is shown as **Custom**, so it reproduces exactly the range the user
+  exported instead of silently sliding forward with today's date.
+- The screen writes on every change (one small upsert), so an app kill cannot lose the choice.
+
+**Consequences.** Tested with corrupted JSON, a wrong sort order, a `DD/MM/YYYY` date and a retired
+column id — each falls back to the documented defaults (`settings.test.ts`).
+
+## ADR-051 No native print preview; the stretch appendix is skipped
+
+**Context.** A print preview differs per platform (`printAsync` opens the OS print window, which on
+iOS can be cancelled and on Android resolves immediately). FR-10 asks for a generated file that is
+shared, not a print job.
+
+**Decision.** No preview is offered, and **no direct printing** either (out of scope this phase). The
+export screen _is_ the preview: person, period, types, the exact column list, the sort order, the
+orientation that will be used, and a live record count from the same predicate the PDF uses. After
+the share sheet closes, an in-app banner in the pinned footer reports success or the failure.
+
+**Decision (the T7 stretch item).** The attachments **column** ships (count and roles). The
+**thumbnail appendix** is deliberately **not** built: embedding base64 images multiplies the HTML and
+the WebView's memory for a feature FR-10 does not ask for, and a poor thumbnail is worse than none.
+It is recorded as skipped in `docs/PHASE4-PROGRESS.md` rather than half-built.
+
+**Consequences.** The user sees exactly what will be exported before generating it, and the screen
+has no platform-specific branch.

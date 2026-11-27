@@ -104,3 +104,30 @@ What does work, and is worth reusing:
   into the Files app headlessly; use Simulator.app drag-and-drop when a GUI is available.
 - Buttons are tapped **by visible label on iOS** and **by testID on Android** (see above); a testID
   tap on iOS lands on the wrapper and can appear to succeed without pressing anything.
+
+## Export PDF (Phase 4)
+
+`.maestro/export/export-pdf.yaml` walks Home → Export PDF → Generate and share → share sheet →
+banner. It needs the expected count and the expected banner text as env vars:
+
+```bash
+maestro --device <id> test \
+  --env COUNT_TEXT="120 records will be included" \
+  --env DONE_TEXT="PDF ready — 120 records." \
+  .maestro/export/export-pdf.yaml
+```
+
+Four traps, all found by running it:
+
+- **A reload lands on Records, not Home.** The flow taps `tab-home` first, and taps `Back` first if a
+  previous run left the export route on the stack.
+- **The Export PDF button sits under the tab bar** until it is scrolled into the middle:
+  `scrollUntilVisible` with `centerElement: true`, otherwise the tap lands on the Records tab.
+- **Maestro's `text:` matcher is a full-string regex.** `"records will be included"` does not match
+  `"120 records will be included"`. Pass the whole sentence, or use `.*`.
+- **The share sheet has to settle before it can be dismissed.** Wait for a stable element
+  (`Copy` on iOS, `Sharing 1 file` on Android) and for the animation, then tap the dimmed area (iOS)
+  or press Back (Android). Tapping too early does nothing and the next assertion fails.
+
+The generated file is in `cache/exports/` on both platforms; section 7c of `docs/TESTING.md` has the
+commands to pull and inspect it.

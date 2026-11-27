@@ -341,6 +341,28 @@ describe('buildExportFacts', () => {
     });
     expect(facts[0]?.value).toBe(strings.common.notRecorded);
   });
+
+  it('lists a medication name once even when two rows share it', () => {
+    const twoRows = buildProfileSnapshot({
+      heightCm: 170,
+      weightKg: 70,
+      bloodPressure: null,
+      bloodType: 'O+',
+      medications: [
+        { id: 'm2', name: 'Syntheticstatin' },
+        { id: 'm1', name: 'Syntheticstatin' },
+        { id: 'm3', name: 'Syntheticbetalol' },
+      ],
+      bmiPreset: 'who',
+    });
+    const facts = buildExportFacts({
+      snapshot: twoRows,
+      today: '2026-11-27',
+      dob: '1990-04-17',
+      unitSystem: 'metric',
+    });
+    expect(facts[6]?.value).toBe('Syntheticstatin, Syntheticbetalol');
+  });
 });
 
 describe('formatExportRange', () => {

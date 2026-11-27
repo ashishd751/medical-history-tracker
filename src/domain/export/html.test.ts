@@ -139,13 +139,28 @@ describe('buildExportHtml with different row counts', () => {
     expect(html).not.toContain('<thead>');
   });
 
-  it('renders 1,000 rows in one table', () => {
+  it('renders 1,000 rows across pages, each page with its own table', () => {
     const rows = Array.from({ length: 1000 }, (_, index) => ({
       id: `r${index}`,
       cells: ['02/11/2026', `Symptom ${index}`, 'Dr Test', 'Condition', 'Hb 13.5 g/dL', 'Note'],
     }));
     const html = buildExportHtml(model({ rows }));
     expect(html.match(/<td>02\/11\/2026<\/td>/g)).toHaveLength(1000);
+    // Six columns is landscape, so 14 rows a page: 72 pages, each with a header row.
+    expect(html.match(/<table/g)).toHaveLength(72);
+    expect(html.match(/<th scope="col"/g)).toHaveLength(72 * 6);
+  });
+
+  it('starts every page after the first with a forced break', () => {
+    const rows = Array.from({ length: 30 }, (_, index) => ({
+      id: `r${index}`,
+      cells: ['02/11/2026', 'A', 'B', 'C', 'D', 'E'],
+    }));
+    const html = buildExportHtml(model({ rows }));
+    // 30 rows at 14 a page is three pages: the first table has no break class.
+    expect(html.match(/<table>/g)).toHaveLength(1);
+    expect(html.match(/<table class="page">/g)).toHaveLength(2);
+    expect(html).toContain('break-before: page');
   });
 
   it('tolerates a row with fewer cells than columns', () => {

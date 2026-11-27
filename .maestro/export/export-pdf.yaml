@@ -1,0 +1,64 @@
+# Export PDF (Phase 4): Home → Export PDF → Generate and share → share sheet → banner.
+#
+# Run with:
+#   maestro --device <id> test \
+#     --env COUNT_TEXT="120 records will be included" \
+#     --env DONE_TEXT="PDF ready — 120 records." \
+#     .maestro/export/export-pdf.yaml
+#
+# The Home screen starts at the Records tab after a reload, and the Export PDF button sits under
+# the tab bar until it is scrolled into the middle, so both are handled explicitly. The share
+# sheet is a system surface: iOS shows Copy/Save to Files, Android shows "Sharing 1 file"; both
+# carry the file name, which is what this flow waits for (see .maestro/README.md).
+appId: com.ashishd751.medicalhistory
+---
+# A previous run may have left the export route on the stack; leave it before looking for the tab bar.
+- runFlow:
+    when:
+      visible: 'Back'
+    commands:
+      - tapOn: 'Back'
+      - waitForAnimationToEnd
+- tapOn:
+    id: 'tab-home'
+- waitForAnimationToEnd
+- scrollUntilVisible:
+    element:
+      id: 'home-export'
+    direction: DOWN
+    centerElement: true
+    speed: 80
+    timeout: 30000
+- tapOn:
+    id: 'home-export'
+- extendedWaitUntil:
+    visible: '${COUNT_TEXT}'
+    timeout: 15000
+- tapOn:
+    id: 'export-generate'
+- extendedWaitUntil:
+    visible: 'medical-history-.*'
+    timeout: 60000
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      # The sheet slides in; tapping the dimmed area before it settles does nothing.
+      - extendedWaitUntil:
+          visible: 'Copy'
+          timeout: 15000
+      - waitForAnimationToEnd
+      - tapOn:
+          point: '50%,10%'
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - extendedWaitUntil:
+          visible: 'Sharing 1 file'
+          timeout: 15000
+      - waitForAnimationToEnd
+      - pressKey: Back
+- extendedWaitUntil:
+    visible: '${DONE_TEXT}'
+    timeout: 20000

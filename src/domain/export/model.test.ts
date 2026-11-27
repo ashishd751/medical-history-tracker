@@ -6,10 +6,12 @@ import {
   DEFAULT_EXPORT_COLUMNS,
   DEFAULT_EXPORT_SORT,
   EXPORT_COLUMN_IDS,
+  EXPORT_ROWS_PER_PAGE,
   type ExportColumnId,
   normalizeExportColumns,
   orientationFor,
   pageSizeFor,
+  rowsPerPageFor,
   sortExportRecords,
 } from './model';
 
@@ -84,6 +86,15 @@ describe('the export column model', () => {
       // 210 × 297 mm in points at 72 PPI, rounded to whole points.
       expect(A4_PORTRAIT).toEqual({ width: 595, height: 842 });
       expect(A4_LANDSCAPE).toEqual({ width: 842, height: 595 });
+    });
+
+    it('puts fewer records on a landscape page', () => {
+      expect(rowsPerPageFor(5)).toBe(EXPORT_ROWS_PER_PAGE.portrait);
+      expect(rowsPerPageFor(6)).toBe(EXPORT_ROWS_PER_PAGE.landscape);
+      expect(EXPORT_ROWS_PER_PAGE.landscape).toBeLessThan(EXPORT_ROWS_PER_PAGE.portrait);
+      // Below the ~20 rows a landscape page physically holds, so a page cannot overflow and lose
+      // its header row on iOS (ADR-048).
+      expect(EXPORT_ROWS_PER_PAGE.landscape).toBeLessThan(20);
     });
   });
 

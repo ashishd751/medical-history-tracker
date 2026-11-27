@@ -84,6 +84,27 @@ export function pageSizeFor(columnCount: number): PageSize {
 }
 
 /**
+ * How many records go on one page.
+ *
+ * These are deliberately below what a page physically holds: iOS renders the HTML with
+ * `UIPrintPageRenderer`, which **does not repeat `thead`** on later pages (unlike Chrome, which
+ * Android uses). The PDF is therefore paginated here — one table per page, each with its own
+ * header row and footer — and the budget leaves room for rows whose cells wrap to two or three
+ * lines. A page that overflows would lose its header, so the margin matters more than density
+ * (ADR-048). Measured: roughly 20–24 rows of this shape fit a landscape page.
+ */
+export const EXPORT_ROWS_PER_PAGE: { readonly portrait: number; readonly landscape: number } = {
+  portrait: 16,
+  landscape: 14,
+};
+
+export function rowsPerPageFor(columnCount: number): number {
+  return orientationFor(columnCount) === 'landscape'
+    ? EXPORT_ROWS_PER_PAGE.landscape
+    : EXPORT_ROWS_PER_PAGE.portrait;
+}
+
+/**
  * Relative column widths.
  *
  * With `table-layout: fixed` the browser splits a table into equal columns unless told otherwise,

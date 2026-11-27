@@ -264,7 +264,9 @@ export function buildExportFacts({
       value:
         snapshot.medications.length === 0
           ? strings.common.none
-          : snapshot.medications.map((medication) => medication.name).join(', '),
+          : // Two rows can legitimately share a name (a dose change is a new row); the header
+            // lists what the person takes, so the name appears once.
+            [...new Set(snapshot.medications.map((medication) => medication.name))].join(', '),
     },
   ];
 }

@@ -129,6 +129,31 @@ src/features/profile/*                    screen, history, trend, add-measuremen
 - "Current medication" is `ongoing` **and** (`end_on IS NULL OR end_on >= today`), with the same
   rule in the domain and in the SQL (ADR-043).
 
+## PDF export (Phase 4)
+
+```
+src/domain/export/                 columns, canonical order, A4 sizes, orientation, row budget,
+                                   sorting, escaping and buildExportHtml(model) — pure
+src/features/export/exportFormat    the cell text and the profile facts (units, labels, dates)
+src/features/export/exportService   read → assemble → clear old files → print → rename → share
+src/features/export/ExportScreen    /export route: filters, columns, sort, live count, banner
+src/features/shell/exportCleanup    deletes earlier PDFs at launch, never throws
+src/platform/pdfPrinter             expo-print behind a port (A4 via width/height)
+src/platform/exportFiles            cache/exports: adopt under a real name, clearPrevious()
+src/data/repositories/exportRepo    six batched reads, chunked at 500 ids, no cap
+```
+
+- The **document is paginated in the builder**: one table per page, each with its own header row and
+  footer, because iOS's print renderer does not repeat `thead` (ADR-048). The row budget (14
+  landscape / 16 portrait) is deliberately below what a page holds, so a page cannot overflow and
+  lose its header.
+- `expo-print`'s `width`/`height` carry the A4 page size; CSS `@page` repeats it for Android's
+  WebView. `numberOfPages` is correct on iOS and **always 1 on Android**, so nothing displays it.
+- The bulk read is six queries for any number of records (asserted exactly at 1,000 rows), and the
+  screen's count uses the same repository predicate the loader uses (ADR-024's rule, extended).
+- An export is a file in `cache/exports/`, renamed `medical-history-<person>-YYYYMMDD.pdf`, cleared at
+  launch and before every new one (ADR-049).
+
 ## UI system
 
 - `src/ui/tokens.ts` owns colour, spacing, radius and the type scale. Features never hard-code a size;

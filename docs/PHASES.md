@@ -75,8 +75,12 @@ approval. Never start the next phase unprompted.
 
 ## Phase 4 — PDF export
 
-- [ ] Column picker, filters, sort order, profile header, landscape logic, repeated headers
-- [ ] Share via expo-sharing; verified on both platforms; 100+ records
+- [x] Column picker, filters, sort order, profile header, landscape logic, repeated headers
+      — the document is paginated by hand (14 rows landscape / 16 portrait) because iOS's print
+      renderer does not repeat `thead`; verified with 1,000 records on both platforms (ADR-048).
+- [x] Share via expo-sharing; verified on both platforms; 100+ records
+      — 120 and 1,000 synthetic records on the iOS simulator and the Android emulator; see
+      `docs/PHASE4-PROGRESS.md` for the per-item results, timings and what was not verified.
 
 ## Phase 5 — Backup and migration
 

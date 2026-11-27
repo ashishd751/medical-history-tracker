@@ -318,13 +318,14 @@ export function ExportScreen() {
             testIDPrefix="export-sort"
           />
         </View>
-
-        {banner ? (
-          <AppBanner tone={banner.tone} message={banner.message} testID="export-banner" />
-        ) : null}
       </ScrollView>
 
       <View style={styles.footer}>
+        {/* The result lands next to the button that produced it, so the user sees it without
+            scrolling back down through the column picker. */}
+        {banner ? (
+          <AppBanner tone={banner.tone} message={banner.message} testID="export-banner" />
+        ) : null}
         <AppCard variant="quiet" testID="export-summary">
           <AppText variant="label" testID="export-count">
             {strings.export.count(total)}

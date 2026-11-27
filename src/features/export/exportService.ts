@@ -137,6 +137,18 @@ export async function generateAndShareExport(
 
     const fileName = buildExportFileName(person.name, request.today);
     const uri = await deps.files.adopt(printed.uri, fileName);
+    const elapsedMs = now() - started;
+
+    // Counts and timings only — never a value, a name or a symptom (logger rules). Logged before
+    // the share sheet opens, so the number is the time the PDF took to build, not the time the
+    // user spends deciding where to send it.
+    logger.info('PDF generated', {
+      records: ordered.length,
+      pages: printed.numberOfPages,
+      columns: columns.length,
+      elapsedMs,
+    });
+
     const shared = await deps.sharer.share(uri, {
       mimeType: 'application/pdf',
       title: fileName,
@@ -147,7 +159,7 @@ export async function generateAndShareExport(
       fileName,
       pages: printed.numberOfPages,
       recordCount: ordered.length,
-      elapsedMs: now() - started,
+      elapsedMs,
       shared: shared === 'shared',
     });
   } catch (error) {

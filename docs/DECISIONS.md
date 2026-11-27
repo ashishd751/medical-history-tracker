@@ -860,3 +860,23 @@ user text in the service, so the form never composes an error message.
 **Consequences.** A 26 MB PDF is refused without being copied. A picker that withholds a size cannot
 cause a false rejection, because the real size decides. Raising a limit is a one-line change plus a
 test.
+
+---
+
+## ADR-037 The SDK patch set is upgraded as a unit, and `expo-doctor` is pinned
+
+**Context.** CI failed at `npx expo-doctor` on a branch that changed no dependencies. `expo@58.1.0` and
+new patches for eight Expo packages were published hours earlier; because the doctor was fetched with
+`npx` (unpinned), its "packages match the installed Expo SDK" check started failing on every branch,
+including `main`.
+
+**Decision.** Take the versions the SDK now expects (`npx expo install --fix`: `expo ~58.1.0` plus
+`expo-crypto`, `expo-dev-client`, `expo-file-system`, `expo-image`, `expo-router`, `expo-sharing`,
+`expo-splash-screen`, `jest-expo`), which also adds the `expo-image` config plugin to `app.json`, and
+pin the doctor as a dev dependency (`expo-doctor@1.21.9`), run by name. Its check set now changes only
+when someone bumps that pin deliberately.
+
+**Consequences.** CI is reproducible and version drift becomes a reviewable commit. Changing native
+package versions means both development builds must be rebuilt (`expo prebuild` + `pod install`;
+`./gradlew assembleDebug`) before device results are trusted again; the Phase 2 device evidence was
+recorded against `expo@58.0.26`.

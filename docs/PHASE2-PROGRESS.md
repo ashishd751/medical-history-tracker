@@ -126,3 +126,11 @@ doctor      20/20 checks passed
 The Phase 1 QA guide that lived in git-ignored `private-samples/` was deleted and replaced by a
 sanitised `docs/TESTING.md` (toolchain, fixtures, device commands, the Phase 2 manual checklist,
 storage inspection, cleanup). `private-samples/` now holds samples only.
+
+## CI fix (expo-doctor)
+
+CI failed on the SDK `58.1.0` / new-patch drift, not on Phase 2 code. Fixed with
+`npx expo install --fix` (`expo ~58.1.0` plus eight patches, and the `expo-image` config plugin in
+`app.json`) and by pinning `expo-doctor@1.21.9` as a dev dependency (ADR-037). Doctor now reports
+20/20. Both native dev builds still need rebuilding before device results are trusted, because they
+were built against `expo@58.0.26`.

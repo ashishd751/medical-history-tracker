@@ -17,7 +17,7 @@ npm run typecheck && npm run lint && npm run deps:check && npm run format:check 
 ## Checklist
 
 - [ ] **T0** Branch, this file, baseline gate (expect 36 suites / 224 tests), commit.
-- [ ] **T1** Domain: `ProfileSnapshot`, `computeProfileDiff`, `isCurrentMedication`,
+- [x] **T1** Domain: `ProfileSnapshot`, `computeProfileDiff`, `isCurrentMedication`,
       `requiresBloodTypeConfirmation`, display formatters, matrix tests.
 - [ ] **T2** Data: `listCurrent` end-date rule, history/snapshot queries, `profileRepository`,
       migration v3 (`profile_excluded`) with the version matrix. Real-SQLite tests.
@@ -35,9 +35,10 @@ npm run typecheck && npm run lint && npm run deps:check && npm run format:check 
 
 ## Evidence log
 
-| Task | Evidence                                                                                                                                                                                               |
-| ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| T0   | `git checkout -b feat/phase-3-profile` from `50ade44`; baseline gate green: `✔ no dependency violations found (153 modules, 365 dependencies cruised)`, `Test Suites: 36 passed`, `Tests: 224 passed`. |
+| Task | Evidence                                                                                                                                                                                                                                                                                                                        |
+| ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| T0   | `git checkout -b feat/phase-3-profile` from `50ade44`; baseline gate green: `✔ no dependency violations found (153 modules, 365 dependencies cruised)`, `Test Suites: 36 passed`, `Tests: 224 passed`.                                                                                                                          |
+| T1   | `src/domain/profile.ts` (+ `profile.test.ts`, 24 cases) and `src/ui/format.ts` `formatProfileChange(s)` (+ `format.test.ts`, 8 cases). `npx jest src/domain/profile.test.ts src/ui/format.test.ts` → 32 passed. Full gate: `38 suites / 256 tests`, `✔ no dependency violations found (156 modules, 371 dependencies cruised)`. |
 
 ### T0 baseline gate output
 

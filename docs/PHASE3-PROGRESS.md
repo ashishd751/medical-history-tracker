@@ -31,7 +31,7 @@ npm run typecheck && npm run lint && npm run deps:check && npm run format:check 
 - [x] **T9** Verification on the iOS simulator **and** the Android emulator (section 6 of the handoff).
 - [x] **T10** Docs: ADR-038 onward, `PHASES.md`, `README.md`, `ARCHITECTURE.md`, `TESTING.md`,
       `.maestro/README.md`.
-- [ ] **T11** Final gate (`npm run doctor` too) and the report.
+- [x] **T11** Final gate (`npm run doctor` too) and the report.
 
 ## Evidence log
 
@@ -76,6 +76,34 @@ Tests:       224 passed, 224 total
 ✔ no dependency violations found (153 modules, 365 dependencies cruised)
 ```
 
+| T10 | ADR-038 to ADR-046 in `docs/DECISIONS.md`; Phase 3 ticked in `docs/PHASES.md`; `README.md` status; a "Profile and measurements (Phase 3)" section plus the state note in `docs/ARCHITECTURE.md`; a Phase 3 manual checklist and a refreshed "known gaps" in `docs/TESTING.md`; the flow traps in `.maestro/README.md`. `npm run format:check` clean. |
+| T11 | Final gate green: typecheck, lint, `✔ no dependency violations found (172 modules, 423 dependencies cruised)`, `format:check`, `Test Suites: 44 passed`, `Tests: 312 passed`; `expo-doctor` `20/20 checks passed`. |
+
+## Devices left as found
+
+Both devices were reset to the state the phase started in (one synthetic person, 170 cm / 70 kg,
+no records, no medications, no attachments) with a `clearState` + onboarding run, which also removed
+every record, measurement and attachment created during verification — the attachment, thumbnail and
+staging folders are gone entirely (the sweeper removes the empty directories on the next launch).
+
+- iOS: appearance restored to **light**, text size to **large**. The photo library keeps the image
+  added with `simctl addmedia`; there is no way to remove it.
+- Android: `wm size` and `wm density` reset to the physical values, `font_scale` back to **1.0**, and
+  the pushed `portrait-exif6.jpg` deleted from `/sdcard/Pictures/`.
+
 ## Decisions taken without asking
 
 _(each one links to its ADR once written)_
+
+- Undo flags rows (`profile_excluded`, migration v3) instead of deleting them, and is offered only
+  for a **new** record; an edit and a delete show the sheet without it and say why (ADR-039,
+  ADR-041).
+- The profile diff includes BMI as its own row when the number moves, compares weight at 0.05 kg and
+  height at 0.5 cm, and ignores a blood pressure that repeats the same numbers on a later date
+  (ADR-038).
+- The pending change lives in a module store read with `useSyncExternalStore`; Zustand stays unused
+  (ADR-040).
+- Clearing a recorded blood type also asks for confirmation, not just replacing it (ADR-044).
+- The measurement history's kind picker uses short labels (BP, Temp) because the full names do not
+  fit a four-column pill at the largest text size; the selected kind's full name is the trend caption.
+- "Edit profile" moved from the header corner into the body (ADR-046).

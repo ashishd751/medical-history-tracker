@@ -88,3 +88,108 @@ describe('settingsRepository', () => {
     fixture.close();
   });
 });
+
+describe('export preferences (Phase 4)', () => {
+  it('starts with the six default columns, newest first and no filters', () => {
+    const fixture = createRepositoryFixture();
+    expect(fixture.repos.settings.getExportPreferences()).toEqual({
+      columns: ['date', 'symptoms', 'doctor', 'condition', 'readings', 'comments'],
+      sortOrder: 'newest',
+      filter: { from: null, to: null, kinds: [] },
+    });
+    fixture.close();
+  });
+
+  it('round-trips columns, sort order and filters', () => {
+    const fixture = createRepositoryFixture();
+    const saved = fixture.repos.settings.saveExportPreferences({
+      columns: ['date', 'title', 'readings', 'attachments'],
+      sortOrder: 'oldest',
+      filter: { from: '2025-01-01', to: '2026-06-30', kinds: ['lab_test', 'vaccination'] },
+    });
+    expect(saved.ok).toBe(true);
+    expect(fixture.repos.settings.getExportPreferences()).toEqual({
+      columns: ['date', 'title', 'readings', 'attachments'],
+      sortOrder: 'oldest',
+      filter: { from: '2025-01-01', to: '2026-06-30', kinds: ['lab_test', 'vaccination'] },
+    });
+    fixture.close();
+  });
+
+  it('normalises what it saves: canonical order, no duplicate kinds', () => {
+    const fixture = createRepositoryFixture();
+    fixture.repos.settings.saveExportPreferences({
+      columns: ['comments', 'date', 'comments'],
+      sortOrder: 'newest',
+      filter: { from: null, to: null, kinds: ['lab_test', 'lab_test', 'procedure'] },
+    });
+    const stored = fixture.repos.settings.getExportPreferences();
+    expect(stored.columns).toEqual(['date', 'comments']);
+    expect(stored.filter.kinds).toEqual(['lab_test', 'procedure']);
+    fixture.close();
+  });
+
+  it('falls back to the defaults when the stored value is unreadable or wrong', () => {
+    const fixture = createRepositoryFixture();
+    const fallback = {
+      columns: ['date', 'symptoms', 'doctor', 'condition', 'readings', 'comments'],
+      sortOrder: 'newest',
+      filter: { from: null, to: null, kinds: [] },
+    };
+
+    fixture.repos.settings.setRaw('settings.exportPreferences', 'not-json');
+    expect(fixture.repos.settings.getExportPreferences()).toEqual(fallback);
+
+    fixture.repos.settings.setRaw(
+      'settings.exportPreferences',
+      JSON.stringify({ columns: ['date'], sortOrder: 'sideways', filter: { kinds: [] } }),
+    );
+    expect(fixture.repos.settings.getExportPreferences()).toEqual(fallback);
+
+    fixture.repos.settings.setRaw(
+      'settings.exportPreferences',
+      JSON.stringify({
+        columns: ['date'],
+        sortOrder: 'oldest',
+        filter: { from: '01/01/2025', to: null, kinds: [] },
+      }),
+    );
+    expect(fixture.repos.settings.getExportPreferences()).toEqual(fallback);
+
+    fixture.repos.settings.setRaw(
+      'settings.exportPreferences',
+      JSON.stringify({
+        columns: ['date', 'title'],
+        sortOrder: 'oldest',
+        filter: { from: null, to: null, kinds: [] },
+      }),
+    );
+    expect(fixture.repos.settings.getExportPreferences()).toEqual({
+      columns: ['date', 'title'],
+      sortOrder: 'oldest',
+      filter: { from: null, to: null, kinds: [] },
+    });
+    fixture.close();
+  });
+
+  it('drops a column id this build no longer knows by falling back as a whole', () => {
+    const fixture = createRepositoryFixture();
+    fixture.repos.settings.setRaw(
+      'settings.exportPreferences',
+      JSON.stringify({
+        columns: ['date', 'retired_column'],
+        sortOrder: 'newest',
+        filter: { from: null, to: null, kinds: [] },
+      }),
+    );
+    expect(fixture.repos.settings.getExportPreferences().columns).toEqual([
+      'date',
+      'symptoms',
+      'doctor',
+      'condition',
+      'readings',
+      'comments',
+    ]);
+    fixture.close();
+  });
+});

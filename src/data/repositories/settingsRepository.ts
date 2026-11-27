@@ -12,7 +12,16 @@ import {
   BMI_PRESETS,
   type BmiPreset,
   DEFAULT_BMI_PRESET,
+  DEFAULT_EXPORT_COLUMNS,
+  DEFAULT_EXPORT_SORT,
   DEFAULT_UNIT_SYSTEM,
+  EXPORT_COLUMN_IDS,
+  EXPORT_SORT_ORDERS,
+  type ExportColumnId,
+  type ExportSortOrder,
+  normalizeExportColumns,
+  RECORD_KINDS,
+  type RecordKind,
   UNIT_SYSTEMS,
   type UnitSystem,
 } from '../../domain';
@@ -28,6 +37,8 @@ export const SETTING_KEYS = {
   activePersonId: 'settings.activePersonId',
   onboardedAt: 'settings.onboardedAt',
   recordDraft: 'draft.record',
+  /** The export screen's column selection, sort order and last filters (Phase 4, ADR-050). */
+  exportPreferences: 'settings.exportPreferences',
 } as const;
 
 /** A draft larger than this is dropped rather than written: one form cannot bloat the database. */
@@ -55,12 +66,57 @@ export interface SettingsRepository {
   getRecordDraft(): string | null;
   saveRecordDraft(json: string): Result<true, AppError>;
   clearRecordDraft(): Result<true, AppError>;
+  /** The export screen's remembered choices; always valid, defaults included (ADR-050). */
+  getExportPreferences(): ExportPreferences;
+  saveExportPreferences(preferences: ExportPreferences): Result<true, AppError>;
   getRaw(key: string): string | null;
   setRaw(key: string, value: string): Result<true, AppError>;
 }
 
+/** What the export screen remembers between visits. */
+export interface ExportPreferences {
+  readonly columns: readonly ExportColumnId[];
+  readonly sortOrder: ExportSortOrder;
+  readonly filter: ExportFilterPreference;
+}
+
+export interface ExportFilterPreference {
+  /** Inclusive `YYYY-MM-DD`, or null for "no bound". */
+  readonly from: string | null;
+  readonly to: string | null;
+  readonly kinds: readonly RecordKind[];
+}
+
+export const DEFAULT_EXPORT_PREFERENCES: ExportPreferences = {
+  columns: DEFAULT_EXPORT_COLUMNS,
+  sortOrder: DEFAULT_EXPORT_SORT,
+  filter: { from: null, to: null, kinds: [] },
+};
+
 const idSchema = z.string().min(1);
 const timestampSchema = z.number().int().nonnegative();
+const isoDateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
+
+/**
+ * The stored export preferences.
+ *
+ * A stored value that fails this schema falls back to the defaults as a whole (the same rule as
+ * every other setting): half-applying a damaged preference is worse than forgetting it, and the
+ * column list is normalised afterwards so a stale id from an older build cannot reach the PDF.
+ */
+const exportPreferencesSchema = z.object({
+  columns: z.array(z.enum(EXPORT_COLUMN_IDS)),
+  sortOrder: z.enum(EXPORT_SORT_ORDERS),
+  filter: z.object({
+    from: isoDateSchema.nullable(),
+    to: isoDateSchema.nullable(),
+    kinds: z.array(z.enum(RECORD_KINDS)),
+  }),
+});
+
+function normalizeExportFilter(filter: ExportFilterPreference): ExportFilterPreference {
+  return { from: filter.from, to: filter.to, kinds: [...new Set(filter.kinds)] };
+}
 
 function readJson<T>(
   stored: string | undefined,
@@ -134,6 +190,29 @@ export function createSettingsRepository(db: AppDatabase): SettingsRepository {
 
   return {
     getSettings,
+
+    getExportPreferences() {
+      const parsed = readJson(
+        readAll().get(SETTING_KEYS.exportPreferences),
+        exportPreferencesSchema,
+        DEFAULT_EXPORT_PREFERENCES,
+        SETTING_KEYS.exportPreferences,
+      );
+      return {
+        columns: normalizeExportColumns(parsed.columns),
+        sortOrder: parsed.sortOrder,
+        filter: normalizeExportFilter(parsed.filter),
+      };
+    },
+
+    saveExportPreferences(preferences) {
+      const payload: ExportPreferences = {
+        columns: normalizeExportColumns(preferences.columns),
+        sortOrder: preferences.sortOrder,
+        filter: normalizeExportFilter(preferences.filter),
+      };
+      return write([{ key: SETTING_KEYS.exportPreferences, value: JSON.stringify(payload) }]);
+    },
 
     updateSettings(patch) {
       const entries: { key: string; value: string }[] = [];

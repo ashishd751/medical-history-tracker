@@ -9,6 +9,7 @@ import type { AppDatabase } from '../db';
 import { type AttachmentRepository, createAttachmentRepository } from './attachmentRepository';
 import { defaultRepositoryDeps, type RepositoryDeps } from './deps';
 import { createDoctorRepository, type DoctorRepository } from './doctorRepository';
+import { createExportRepository, type ExportRepository } from './exportRepository';
 import { createMeasurementRepository, type MeasurementRepository } from './measurementRepository';
 import { createMedicationRepository, type MedicationRepository } from './medicationRepository';
 import { createPersonRepository, type PersonRepository } from './personRepository';
@@ -27,6 +28,8 @@ export interface AppRepositories {
   readonly doctors: DoctorRepository;
   readonly settings: SettingsRepository;
   readonly profile: ProfileRepository;
+  /** The bulk read behind the PDF export (Phase 4). */
+  readonly exports: ExportRepository;
 }
 
 export function createRepositories(
@@ -48,5 +51,6 @@ export function createRepositories(
     settings: createSettingsRepository(db),
     // The profile reads through the same repositories so its queries cannot drift from theirs.
     profile: createProfileRepository(db, { people, measurements, medications }),
+    exports: createExportRepository(db),
   };
 }

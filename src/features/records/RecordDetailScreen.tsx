@@ -8,7 +8,6 @@ import { formatDisplayDate, todayIso } from '@/lib/dates';
 import { publishProfileChange } from '@/lib/profileChangeStore';
 import { useSession } from '@/lib/session';
 import {
-  AppBadge,
   AppBanner,
   AppButton,
   AppCard,
@@ -115,10 +114,17 @@ export function RecordDetailScreen({ recordId }: { recordId: string }) {
   };
 
   return (
-    <AppScreen title={record.title} onBack={() => router.back()} testID="screen-record-detail">
+    <AppScreen
+      title={record.title}
+      // The type was a badge in the row below, where its `alignSelf: 'flex-start'` left it floating
+      // above the centred date. As the eyebrow it reads as the record's category, above the title,
+      // and the row below is just the date and Edit (device review).
+      eyebrow={recordKindLabel(record.kind)}
+      onBack={() => router.back()}
+      testID="screen-record-detail"
+    >
       {banner ? <AppBanner tone="warning" message={banner} testID="detail-banner" /> : null}
       <View style={styles.head}>
-        <AppBadge label={recordKindLabel(record.kind)} tone="primary" />
         <AppText variant="label" testID="detail-date">
           {formatDisplayDate(record.date)}
         </AppText>

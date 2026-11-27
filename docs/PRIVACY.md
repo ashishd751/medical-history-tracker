@@ -8,7 +8,7 @@ This app is built for one family, on their own phones, with no backend.
 | ----------------------------------------------------- | ------------------------------------------------------------------------- |
 | Records, profile, measurements, medications, settings | SQLite database inside the app's private storage                          |
 | Prescription/lab images and PDFs                      | App-private documents directory (`attachments/`), thumbnails in `thumbs/` |
-| Exported PDFs                                         | App cache directory, then handed to the OS share sheet                    |
+| Exported PDFs                                         | App cache directory (`cache/exports/`), then handed to the OS share sheet |
 | Backups                                               | A `.zip` you create, then hand to the OS share sheet                      |
 
 Nothing is synced, uploaded or hosted. There is no account.
@@ -44,6 +44,18 @@ app lock would create a second way to lose access to medical data.
 The app never transmits anything, but exported PDFs and backup `.zip` files are **plain files**. Once
 shared through WhatsApp, Drive, email or AirDrop they leave your control and may be copied into
 someone else's cloud. Treat them like a printed medical file.
+
+## Exported PDFs in the cache
+
+The PDF export writes into the app's **cache** directory (`cache/exports/`), not the documents
+directory, and the file is deleted:
+
+- at launch, before the first screen is shown (the export cleanup in `AppProviders`), and
+- again immediately before the next export is generated.
+
+So at most one exported PDF exists on the device, and only until the app is next opened. The cache is
+also reclaimable by the OS, which is why nothing here is a source of truth: the SQLite database and
+the attachment files are. Sharing hands a **copy** to another app; this app cannot delete that copy.
 
 ## This repository is public
 

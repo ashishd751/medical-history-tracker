@@ -9,6 +9,7 @@ import type {
   BloodType,
   BmiCategory,
   BpCategory,
+  ExportColumnId,
   MeasurementKind,
   MedicationStatus,
   ReadingFlag,
@@ -52,4 +53,14 @@ export function bpCategoryLabel(category: BpCategory): string {
 
 export function bloodTypeLabel(bloodType: BloodType | null): string {
   return bloodType ?? strings.common.notRecorded;
+}
+
+/** Table header for an export column (Phase 4). The map is exhaustive over `ExportColumnId`. */
+export function exportColumnLabel(id: ExportColumnId): string {
+  return strings.export.column[id];
+}
+
+/** Short vital name inside one compact export cell ("BP", "Temp"), not the full screen label. */
+export function exportVitalLabel(kind: MeasurementKind): string {
+  return strings.export.vital[kind];
 }

@@ -235,6 +235,78 @@ Expected: an EXIF-rotated portrait is stored upright (a 1400×1000 file tagged o
 1000×1400), no larger than 2000 px, with no `Exif` segment left; `sha256` is 64 hex characters and
 `bytes` matches the file.
 
+## 7b. Seeding export records (Phase 4)
+
+Clicking 1,000 records through the UI is not practical. `scripts/seed-export-demo.mjs` prints
+synthetic SQL (invented names, symptoms, readings, a few Hindi/emoji/Arabic strings, one record with
+`<b>`, `&`, quotes and a 100-character unbroken word). It replaces its own previous set on every run
+(`DELETE FROM record WHERE id LIKE 'demo-%'`), so it is safe to re-run.
+
+```bash
+# The system /usr/bin/sqlite3 has FTS5; the Android SDK one on PATH does NOT and fails with
+# "no such module: fts5" when the record triggers fire. Always call /usr/bin/sqlite3 explicitly.
+node scripts/seed-export-demo.mjs 120 > /tmp/seed.sql
+
+# iOS simulator: the app's database is a host file. Stop the app first.
+xcrun simctl terminate booted com.ashishd751.medicalhistory
+IOSDB="$(xcrun simctl get_app_container booted com.ashishd751.medicalhistory data)/Documents/SQLite/medical-history.db"
+/usr/bin/sqlite3 "$IOSDB" < /tmp/seed.sql
+/usr/bin/sqlite3 "$IOSDB" 'select count(*) from record;'
+xcrun simctl openurl booted "medicalhistory://expo-development-client/?url=http%3A%2F%2Flocalhost%3A8081"
+
+# Android emulator: pull, seed on the host, push back (there is no sqlite3 binary in the image).
+PKG=com.ashishd751.medicalhistory
+adb shell am force-stop $PKG
+mkdir -p /tmp/androiddb
+adb exec-out run-as $PKG cat files/SQLite/medical-history.db > /tmp/androiddb/medical-history.db
+/usr/bin/sqlite3 /tmp/androiddb/medical-history.db < /tmp/seed.sql
+adb shell "run-as $PKG sh -c 'cat > /data/user/0/$PKG/files/SQLite/medical-history.db'" \
+  < /tmp/androiddb/medical-history.db
+adb shell "run-as $PKG rm -f /data/user/0/$PKG/files/SQLite/medical-history.db-wal \
+  /data/user/0/$PKG/files/SQLite/medical-history.db-shm"
+```
+
+Two traps: the quotes around the device command matter (without them the redirect runs as `shell`
+and fails with "Permission denied"), and the `-wal`/`-shm` files must go or the app replays them over
+the pushed database.
+
+## 7c. Pulling and checking an exported PDF (Phase 4)
+
+`brew install poppler` gives `pdfinfo`, `pdftotext` and `pdftoppm`.
+
+```bash
+# iOS
+IOS_DATA="$(xcrun simctl get_app_container booted com.ashishd751.medicalhistory data)"
+cp "$IOS_DATA/Library/Caches/exports/medical-history-<name>-<date>.pdf" /tmp/export.pdf
+
+# Android
+adb exec-out run-as com.ashishd751.medicalhistory \
+  cat /data/user/0/com.ashishd751.medicalhistory/cache/exports/medical-history-<name>-<date>.pdf \
+  > /tmp/export.pdf
+
+pdfinfo /tmp/export.pdf | grep -E 'Pages|Page size'    # A4: 842x595 landscape, 595x842 portrait
+pdftotext -layout /tmp/export.pdf /tmp/export.txt
+grep -c 'DATE' /tmp/export.txt                          # one header row per page
+grep -c 'Informational only' /tmp/export.txt            # one footer per page
+pdftoppm -r 70 -png -f 2 -l 2 /tmp/export.pdf /tmp/page2 # then LOOK at /tmp/page2-02.png
+```
+
+Check on both platforms: the header row on **every** page, no row split across a page boundary (a
+page that starts with a row instead of the header is a split), DD/MM/YYYY dates, a dash for an empty
+cell, `<b>`/`&`/quotes shown literally, the long word wrapped inside its cell, Hindi and emoji
+rendered, and Arabic right-to-left inside its cell.
+
+The generation time and page count are logged by the service (counts and timings only, never data):
+
+```
+LOG  [info] PDF generated {"columns": 6, "elapsedMs": 3315, "pages": 72, "records": 1000}
+```
+
+`pages` is correct on iOS and **always 1 on Android** (a known `expo-print` quirk, ADR-048); trust
+`pdfinfo`, not the log, on Android.
+
+## 8. No camera, no network
+
 ## 8. No camera, no network
 
 ```bash
@@ -284,3 +356,31 @@ empty, and restore any font scale, density or appearance you changed.
   accessibility audit).
 
 - A large text size (Android: Settings → Display → Font size) should not clip the section titles.
+
+## 12. Manual checklist — PDF export (Phase 4)
+
+Run each item on **both** platforms and record the result (the Phase 4 results are in
+`docs/PHASE4-PROGRESS.md`). Use the seeded synthetic data of section 7b.
+
+1. **Defaults.** Home → Export PDF → Generate and share. The share sheet appears and can be
+   cancelled; the PDF has FR-10's six columns, newest record first, the profile header and the footer.
+2. **Custom columns.** Add Type, Medications, Vitals and Facility. Past five columns the note under
+   the picker says landscape and the PDF is `842x595`; remove down to five and it is `595x842`.
+3. **Sort flip.** Oldest first reverses the order in the PDF.
+4. **Filters.** A period preset and a record-type filter change both the live count and the PDF; a
+   filter with no matches disables the button and explains why.
+5. **Volume.** 1, 100+ and 1,000 records: generation time, UI responsive, no crash, headers on every
+   page, no split rows.
+6. **Text.** Hindi, emoji, a long unbroken word, `<b>`, `&` and quotes render safely and wrap.
+7. **Units.** Switch to imperial (Settings) and export: the header, vitals and readings use lb/ft/°F,
+   and the stored metric values are unchanged.
+8. **Profile header.** Values match Home and Profile, including a BP date and current medication.
+9. **Persistence.** Relaunch: columns, sort order and filters are remembered; a corrupted
+   `settings.exportPreferences` row falls back to the defaults.
+10. **Cleanup.** After an export and a relaunch, `cache/exports/` is empty (the log line
+    `Removed earlier PDF exports` proves it; see section 7c for the path).
+11. **Appearance and sizes.** iOS dark and light with accessibility XL text, Android light at 360 dp
+    with font scale 1.3: the export screen's controls and pinned footer do not clip. The PDF is
+    always white and print-sized, whatever the theme.
+12. **Regression smoke.** Section 9's five-minute smoke, plus a Phase 3 record that changes weight
+    still shows the "Profile updated" sheet.

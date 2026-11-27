@@ -29,6 +29,26 @@ export const MAX_SHORT_TEXT = 200;
 export const MAX_LONG_TEXT = 4000;
 export const MAX_NAME = 120;
 
+/**
+ * Attachment limits (Phase 2).
+ *
+ * A record is one visit, examination or test result; ten files is already more than a paper folder
+ * holds, and it keeps a record's detail screen scrollable. PDFs keep their original bytes, so their
+ * cap is about the storage a family phone can spare; images are re-encoded and get a larger source
+ * cap because a modern phone photo is routinely 5–15 MB before processing.
+ */
+export const MAX_ATTACHMENTS_PER_RECORD = 10;
+export const MAX_PDF_BYTES = 25 * 1024 * 1024;
+export const MAX_IMAGE_SOURCE_BYTES = 40 * 1024 * 1024;
+
+/** Long side of a stored image, and of its thumbnail. */
+export const IMAGE_MAX_LONG_EDGE = 2000;
+export const THUMB_MAX_LONG_EDGE = 400;
+/** JPEG quality. At 2000 px this lands well under the 1.5 MB target for a typical page. */
+export const IMAGE_JPEG_QUALITY = 0.8;
+/** A stored image above this is re-encoded at a lower quality before it is accepted. */
+export const IMAGE_TARGET_BYTES = 1_500_000;
+
 export function inRange(value: number, range: NumericRange): boolean {
   return Number.isFinite(value) && value >= range.min && value <= range.max;
 }

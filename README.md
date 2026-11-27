@@ -3,9 +3,10 @@
 A private, offline medical-history app for one family. Everything stays on the device: no backend,
 no account, no analytics, no camera, no notifications.
 
-**Status:** Phase 1 (data core and manual records) complete, including its review pass: a paginated
-timeline, FTS5 symptom search, truthful result counts and the UI fixes from the review (ADR-023 to
-ADR-029). 27 Jest suites / 162 tests. No file attachments yet (Phase 2).
+**Status:** Phase 2 (attachments) built: prescription photos and PDFs, lab reports and other files,
+a relative-path file store with a startup sweeper, and a zoomable viewer (ADR-030 to ADR-036). The
+Android path is verified end to end on the emulator; the iOS photo picker still needs a manual pass.
+See `docs/PHASE2-PROGRESS.md` for the task-by-task evidence and the outstanding device checks.
 
 ## Requirements
 
@@ -39,14 +40,15 @@ CI runs the same set on every push (`.github/workflows/ci.yml`).
 
 ## Documentation
 
-| File                   | What it covers                                    |
-| ---------------------- | ------------------------------------------------- |
-| `AGENTS.md`            | Rules for contributors and AI agents              |
-| `docs/ARCHITECTURE.md` | Layers, dependency rules, data invariants         |
-| `docs/DECISIONS.md`    | ADRs for every non-obvious choice                 |
-| `docs/PHASES.md`       | Phase plan and checklist                          |
-| `docs/PRIVACY.md`      | What is stored, where, and what leaves the device |
-| `docs/PHASE0-ENV.md`   | Verified toolchain versions                       |
+| File                   | What it covers                                     |
+| ---------------------- | -------------------------------------------------- |
+| `AGENTS.md`            | Rules for contributors and AI agents               |
+| `docs/ARCHITECTURE.md` | Layers, dependency rules, data invariants          |
+| `docs/DECISIONS.md`    | ADRs for every non-obvious choice                  |
+| `docs/PHASES.md`       | Phase plan and checklist                           |
+| `docs/PRIVACY.md`      | What is stored, where, and what leaves the device  |
+| `docs/PHASE0-ENV.md`   | Verified toolchain versions                        |
+| `docs/TESTING.md`      | Manual test scripts for the simulator and emulator |
 
 ## Not committed, ever
 

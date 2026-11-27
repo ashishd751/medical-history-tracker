@@ -3,11 +3,12 @@ import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
-import { requireRepositories } from '@/data';
+import { getFileStore, requireRepositories } from '@/data';
 import { formatDisplayDate } from '@/lib/dates';
 import { useSession } from '@/lib/session';
 import {
   AppBadge,
+  AppBanner,
   AppButton,
   AppCard,
   AppChip,
@@ -20,6 +21,8 @@ import {
   strings,
 } from '@/ui';
 
+import { fileSharer, getAttachmentService } from './attachments/attachmentDeps';
+import { AttachmentGallery, groupAttachments } from './attachments/AttachmentGallery';
 import { DetailField } from './detail/DetailField';
 import { MedicationList } from './detail/MedicationList';
 import { ReadingsTable } from './detail/ReadingsTable';
@@ -30,6 +33,7 @@ export function RecordDetailScreen({ recordId }: { recordId: string }) {
   const { personId, unitSystem, refresh } = useSession();
   const router = useRouter();
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [banner, setBanner] = useState<string | null>(null);
   const id = personId ?? '';
 
   const detail = useQuery({
@@ -53,7 +57,7 @@ export function RecordDetailScreen({ recordId }: { recordId: string }) {
     );
   }
 
-  const { record, medications, readings, measurements } = detail.data;
+  const { record, medications, readings, measurements, attachments } = detail.data;
   const doctor = record.doctorId
     ? doctors.data?.find((candidate) => candidate.id === record.doctorId)
     : undefined;
@@ -62,12 +66,37 @@ export function RecordDetailScreen({ recordId }: { recordId: string }) {
     const result = requireRepositories().records.remove(id, recordId);
     setConfirmDelete(false);
     if (!result.ok) return;
+    // The rows are gone (committed); the files go now. A failure here leaves an orphan that the
+    // next launch's sweeper removes.
+    void getAttachmentService().deleteFiles(result.value.attachmentPaths);
     refresh();
     router.back();
   };
 
+  const gallery = groupAttachments(attachments, getFileStore());
+
+  const shareAttachment = async (attachmentId: string) => {
+    const row = attachments.find((attachment) => attachment.id === attachmentId);
+    if (!row) return;
+    const files = getFileStore();
+    if (!files.exists(row.relPath)) {
+      setBanner(strings.attachments.fileMissing);
+      return;
+    }
+    try {
+      const outcome = await fileSharer.share(files.toUri(row.relPath), {
+        mimeType: row.mime,
+        title: strings.attachments.open,
+      });
+      setBanner(outcome === 'unavailable' ? strings.attachments.shareUnavailable : null);
+    } catch {
+      setBanner(strings.attachments.shareUnavailable);
+    }
+  };
+
   return (
     <AppScreen title={record.title} onBack={() => router.back()} testID="screen-record-detail">
+      {banner ? <AppBanner tone="warning" message={banner} testID="detail-banner" /> : null}
       <View style={styles.head}>
         <AppBadge label={recordKindLabel(record.kind)} tone="primary" />
         <AppText variant="label" testID="detail-date">
@@ -114,6 +143,20 @@ export function RecordDetailScreen({ recordId }: { recordId: string }) {
       <MedicationList medications={medications} />
       <ReadingsTable readings={readings} />
       <VitalsList measurements={measurements} unitSystem={unitSystem} />
+
+      {attachments.length > 0 ? (
+        <AppCard>
+          <AppText variant="caption" color="muted">
+            {strings.recordDetail.attachments}
+          </AppText>
+          <AttachmentGallery
+            groups={gallery}
+            onOpen={(attachmentId) => router.push(`/attachment/${attachmentId}`)}
+            onShare={(attachmentId) => void shareAttachment(attachmentId)}
+            testID="record-attachments"
+          />
+        </AppCard>
+      ) : null}
 
       {record.prescriptionText ? (
         <DetailField label={strings.recordDetail.prescription} value={record.prescriptionText} />

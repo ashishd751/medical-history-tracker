@@ -9,11 +9,12 @@
  * it never becomes another feature's internal detail.
  */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { type ReactNode, useCallback, useMemo, useState } from 'react';
+import { type ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
 
-import { getRepositories } from '../../data';
+import { getRepositories, sweepAttachmentsAtStartup } from '../../data';
 import { DEFAULT_BMI_PRESET, DEFAULT_UNIT_SYSTEM } from '../../domain';
 import type { AppError } from '../../lib/errors';
+import { logger } from '../../lib/logger';
 import { SessionProvider, type SessionState } from '../../lib/session';
 
 interface SessionSnapshot {
@@ -74,6 +75,14 @@ export function AppProviders({ children }: { children: ReactNode }) {
     setSnapshot(readSession());
     void queryClient.invalidateQueries();
   }, [queryClient]);
+
+  // Reconcile files with rows in the background: the first screen renders while it runs, and a
+  // failure is logged rather than shown (the store is unchanged, and the next launch retries).
+  useEffect(() => {
+    sweepAttachmentsAtStartup().catch((error: unknown) => {
+      logger.warn('The startup attachment sweep failed', { error: String(error) });
+    });
+  }, []);
 
   const value = useMemo<SessionState>(() => ({ ...snapshot, refresh }), [snapshot, refresh]);
 

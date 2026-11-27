@@ -55,3 +55,21 @@ repository tests rather than the flow, to keep the end-to-end path stable on bot
   `10.0.2.2`.
 
 `dev/dismiss-intro.yaml` remains useful for dismissing the dev-client intro by hand.
+
+## Attachments (Phase 2)
+
+There is deliberately **no committed flow for the pickers yet**. Both system pickers are separate
+apps, and on iOS 27 the photo picker did not present under Maestro in this session (the taps
+completed and nothing appeared), so a flow would be flaky and misleading. The pipeline underneath is
+covered by Jest (`attachmentService.test.ts`, `fileStore.test.ts`, `fileSweeper.test.ts`).
+
+What does work, and is worth reusing:
+
+- **Android**: `adb shell input tap <x> <y>` on the picker's grid selects a photo; Maestro then
+  taps `id: "add-photo-prescription"`. For the document picker, `adb push` alone is not enough —
+  `adb shell am broadcast -a android.intent.action.MEDIA_SCANNER_SCAN_FILE -d file:///sdcard/Download/<file>`
+  makes the file appear under "Recent files".
+- **iOS**: `xcrun simctl addmedia booted <image>` fills the photo library. Files cannot be pushed
+  into the Files app headlessly; use Simulator.app drag-and-drop when a GUI is available.
+- Buttons are tapped **by visible label on iOS** and **by testID on Android** (see above); a testID
+  tap on iOS lands on the wrapper and can appear to succeed without pressing anything.

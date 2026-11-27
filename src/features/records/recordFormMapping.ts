@@ -8,11 +8,15 @@ import type { RecordDetail, RecordFormInput, VitalInput } from '@/data';
 import { cmToIn, inToCm, kgToLb, lbToKg, type UnitSystem } from '@/domain';
 import { todayIso } from '@/lib/dates';
 
+import { parseStagedAttachments, type StagedAttachment } from './attachments/attachmentDraft';
 import { EMPTY_RECORD_FORM, type RecordFormValues } from './recordFormSchema';
 
 export interface DraftPayload {
   readonly recordId: string | null;
+  /** Identifies the staging folder the draft's files live in. */
+  readonly draftId: string | null;
   readonly values: RecordFormValues;
+  readonly attachments: readonly StagedAttachment[];
 }
 
 function toNumber(value: string): number | null {
@@ -141,9 +145,16 @@ export function parseDraft(raw: string | null): DraftPayload | null {
     if (typeof parsed !== 'object' || parsed === null) return null;
     const candidate = parsed as Partial<DraftPayload>;
     if (typeof candidate.values !== 'object' || candidate.values === null) return null;
+    const draftId = typeof candidate.draftId === 'string' ? candidate.draftId : null;
+    // Staged files are only usable inside their own draft's folder.
+    const attachments = parseStagedAttachments(candidate.attachments).filter(
+      (attachment) => draftId !== null && attachment.draftId === draftId,
+    );
     return {
       recordId: typeof candidate.recordId === 'string' ? candidate.recordId : null,
+      draftId,
       values: { ...EMPTY_RECORD_FORM, ...candidate.values },
+      attachments,
     };
   } catch {
     return null;

@@ -2,6 +2,7 @@ export { AppBadge, type AppBadgeProps, type BadgeTone } from './AppBadge';
 export { AppBanner, type AppBannerProps, type BannerTone } from './AppBanner';
 export { AppButton, type AppButtonProps, type AppButtonVariant } from './AppButton';
 export { AppCard, type AppCardProps } from './AppCard';
+export { AppChangeList, type AppChangeListProps, type AppChangeRow } from './AppChangeList';
 export { AppChip, type AppChipProps } from './AppChip';
 export { AppChoiceGrid, type AppChoiceGridProps, type ChoiceOption } from './AppChoiceGrid';
 export { AppDateField, type AppDateFieldProps } from './AppDateField';

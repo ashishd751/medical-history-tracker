@@ -7,6 +7,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { AppProviders } from '@/features/shell/AppProviders';
+import { ProfileChangeHost } from '@/features/shell/ProfileChangeHost';
 import { logger } from '@/lib/logger';
 import { AppThemeProvider, useAppTheme } from '@/ui/ThemeProvider';
 
@@ -40,6 +41,8 @@ function ThemedNavigator() {
           options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
         />
       </Stack>
+      {/* Above the navigator so a save's sheet survives the navigation to the record it saved. */}
+      <ProfileChangeHost />
     </View>
   );
 }

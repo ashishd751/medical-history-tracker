@@ -134,3 +134,20 @@ CI failed on the SDK `58.1.0` / new-patch drift, not on Phase 2 code. Fixed with
 `app.json`) and by pinning `expo-doctor@1.21.9` as a dev dependency (ADR-037). Doctor now reports
 20/20. Both native dev builds still need rebuilding before device results are trusted, because they
 were built against `expo@58.0.26`.
+
+## Re-verified on the SDK 58.1 build (both platforms rebuilt)
+
+`npx expo prebuild --no-install` + `pod install`; iOS `xcodebuild` **BUILD SUCCEEDED**, Android
+`./gradlew assembleDebug` **BUILD SUCCESSFUL** (6m 2s).
+
+- **Android, end to end on 58.1:** picked `portrait-exif6.jpg` from the system photo picker,
+  thumbnail staged under `staging/<draftId>/thumbs/`, saved, file moved to
+  `attachments/<personId>/<recordId>/<id>.jpg`; deleted the record; `attachment` and `record`
+  both 0 and `files/thumbs`/`files/staging` empty.
+- **iOS: the picker still does not open on 58.1.** Both `Add photo` and `Add file` are pressed, the
+  form's busy state toggles (the ScrollView re-lays out) and then nothing: no picker, no error
+  banner, which means the picker promise resolves as _cancelled_ rather than presenting. This
+  reproduces on a freshly built 58.1 dev client, so it is not stale JS and not the Maestro tap by
+  itself. Next session: call the picker from outside the modal stack, try an explicit
+  `presentationStyle`, and test on a physical iPhone; `ImagePicker.getPendingResultAsync()` may also
+  explain it.

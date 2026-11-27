@@ -16,6 +16,8 @@ import { DEFAULT_BMI_PRESET, DEFAULT_UNIT_SYSTEM } from '../../domain';
 import type { AppError } from '../../lib/errors';
 import { logger } from '../../lib/logger';
 import { SessionProvider, type SessionState } from '../../lib/session';
+import { expoExportFiles } from '../../platform';
+import { clearPreviousExportsAtStartup } from './exportCleanup';
 
 interface SessionSnapshot {
   readonly ready: boolean;
@@ -81,6 +83,11 @@ export function AppProviders({ children }: { children: ReactNode }) {
   useEffect(() => {
     sweepAttachmentsAtStartup().catch((error: unknown) => {
       logger.warn('The startup attachment sweep failed', { error: String(error) });
+    });
+    // A PDF exported in an earlier session is a copy of medical data in the cache; it goes now
+    // rather than waiting for the next export (ADR-049).
+    clearPreviousExportsAtStartup({ files: expoExportFiles }).catch((error: unknown) => {
+      logger.warn('The startup export cleanup failed', { error: String(error) });
     });
   }, []);
 

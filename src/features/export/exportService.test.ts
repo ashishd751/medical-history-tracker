@@ -33,7 +33,6 @@ function harness() {
 function request(overrides: Partial<ExportRequest> = {}): ExportRequest {
   return {
     personId: '',
-    personName: 'Synthetic Person',
     filter: {},
     columns: ['date', 'symptoms', 'doctor', 'condition', 'readings', 'comments'],
     sortOrder: 'newest',

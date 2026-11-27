@@ -102,6 +102,8 @@ export const strings = {
     columns: 'Columns',
     columnsHint: 'Up to 5 columns print portrait. More than 5 switch to landscape.',
     columnsSelected: (count: number) => `${count} column${count === 1 ? '' : 's'} selected`,
+    portraitNote: 'A4 portrait · up to 5 columns',
+    landscapeNote: 'A4 landscape · 6 or more columns',
     sort: 'Order',
     sortNewest: 'Newest first',
     sortOldest: 'Oldest first',

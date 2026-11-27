@@ -40,7 +40,6 @@ export interface ExportFilterInput {
 
 export interface ExportRequest {
   readonly personId: string;
-  readonly personName: string;
   readonly filter: ExportFilterInput;
   readonly columns: readonly ExportColumnId[];
   readonly sortOrder: ExportSortOrder;

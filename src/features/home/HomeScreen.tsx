@@ -128,8 +128,8 @@ export function HomeScreen() {
         <AppButton
           label={strings.home.exportPdf}
           variant="secondary"
-          disabled
-          onPress={() => undefined}
+          onPress={() => router.push('/export')}
+          testID="home-export"
         />
         <AppButton
           label={strings.home.backup}

@@ -7,7 +7,9 @@ import { BackHandler, ScrollView, StyleSheet, View } from 'react-native';
 
 import { attachmentPathsOf, getFileStore, requireRepositories } from '@/data';
 import { FACILITY_KINDS, MAX_ATTACHMENTS_PER_RECORD, type RecordKind } from '@/domain';
+import { todayIso } from '@/lib/dates';
 import { uuidv7 } from '@/lib/ids';
+import { publishProfileChange } from '@/lib/profileChangeStore';
 import { useSession } from '@/lib/session';
 import {
   AppBanner,
@@ -30,6 +32,7 @@ import { MedicationsRepeater } from './form/MedicationsRepeater';
 import { ReadingsRepeater } from './form/ReadingsRepeater';
 import { RecordBasicsFields } from './form/RecordBasicsFields';
 import { VitalsFields } from './form/VitalsFields';
+import { buildProfileChangeReport, readProfile, undoPlanForRecord } from './profileSync';
 import { emptyForm, parseDraft, toFormValues, toRecordInput } from './recordFormMapping';
 import { createRecordFormSchema, type RecordFormValues } from './recordFormSchema';
 
@@ -44,7 +47,7 @@ const MAX = MAX_ATTACHMENTS_PER_RECORD;
  * before writing the rows in one transaction — rolling the files back if that transaction fails.
  */
 export function RecordFormScreen({ recordId }: { recordId?: string }) {
-  const { personId, unitSystem, refresh } = useSession();
+  const { personId, unitSystem, bmiPreset, refresh } = useSession();
   const router = useRouter();
   const schema = useMemo(() => createRecordFormSchema(unitSystem), [unitSystem]);
 
@@ -250,6 +253,10 @@ export function RecordFormScreen({ recordId }: { recordId?: string }) {
     if (!personId) return;
     const repositories = requireRepositories();
 
+    // Capture the profile before the write, so the diff describes exactly what this save did.
+    const profileRequest = { personId, today: todayIso(), bmiPreset };
+    const profileBefore = readProfile(repositories, profileRequest);
+
     setBusy(true);
     try {
       let doctorId: string | null = null;
@@ -306,6 +313,22 @@ export function RecordFormScreen({ recordId }: { recordId?: string }) {
       await service.deleteFiles(removedPaths);
       await service.discardDraft(draftId);
       repositories.settings.clearRecordDraft();
+
+      // 4. Tell the user what the profile picked up. Undo is offered only for a new record:
+      //    an edit replaced the earlier rows, so there is nothing exact left to restore
+      //    (ADR-039, ADR-041). Publishing `null` closes a sheet left over from an earlier save.
+      const profileAfter = readProfile(repositories, profileRequest);
+      publishProfileChange(
+        buildProfileChangeReport({
+          before: profileBefore,
+          after: profileAfter,
+          undo: recordId
+            ? null
+            : undoPlanForRecord(repositories.records.getDetail(personId, targetRecordId)),
+          undoUnavailable: recordId ? 'edit' : null,
+        }),
+      );
+
       refresh();
       if (recordId) router.back();
       // Show the saved record rather than dropping the user back on Home: they just spent a

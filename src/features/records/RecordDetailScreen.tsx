@@ -4,7 +4,8 @@ import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { getFileStore, requireRepositories } from '@/data';
-import { formatDisplayDate } from '@/lib/dates';
+import { formatDisplayDate, todayIso } from '@/lib/dates';
+import { publishProfileChange } from '@/lib/profileChangeStore';
 import { useSession } from '@/lib/session';
 import {
   AppBadge,
@@ -27,10 +28,11 @@ import { DetailField } from './detail/DetailField';
 import { MedicationList } from './detail/MedicationList';
 import { ReadingsTable } from './detail/ReadingsTable';
 import { VitalsList } from './detail/VitalsList';
+import { buildProfileChangeReport, readProfile } from './profileSync';
 
 /** Everything about one record, with edit and a confirmed delete. */
 export function RecordDetailScreen({ recordId }: { recordId: string }) {
-  const { personId, unitSystem, refresh } = useSession();
+  const { personId, unitSystem, bmiPreset, refresh } = useSession();
   const router = useRouter();
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [banner, setBanner] = useState<string | null>(null);
@@ -63,12 +65,30 @@ export function RecordDetailScreen({ recordId }: { recordId: string }) {
     : undefined;
 
   const remove = () => {
-    const result = requireRepositories().records.remove(id, recordId);
+    const repositories = requireRepositories();
+    const profileRequest = { personId: id, today: todayIso(), bmiPreset };
+    // Capture the profile first: deleting the record cascades to its measurements and
+    // medications, and the diff is what explains the change that follows (ADR-041).
+    const profileBefore = readProfile(repositories, profileRequest);
+
+    const result = repositories.records.remove(id, recordId);
     setConfirmDelete(false);
     if (!result.ok) return;
     // The rows are gone (committed); the files go now. A failure here leaves an orphan that the
     // next launch's sweeper removes.
     void getAttachmentService().deleteFiles(result.value.attachmentPaths);
+
+    // The profile is derived, so it has already reverted. There is nothing left to undo — the
+    // record and its values are gone — so the sheet explains rather than offering one.
+    publishProfileChange(
+      buildProfileChangeReport({
+        before: profileBefore,
+        after: readProfile(repositories, profileRequest),
+        undo: null,
+        undoUnavailable: 'delete',
+      }),
+    );
+
     refresh();
     router.back();
   };

@@ -5,9 +5,11 @@
  * a native module and never needs a device. Only tests import this module.
  */
 import type { DocumentPicker } from '../documentPicker';
+import type { ExportFiles } from '../exportFiles';
 import type { FileSharer } from '../fileSharer';
 import type { ImageLibraryPicker } from '../imageLibraryPicker';
 import type { ImageProcessor, ProcessedImage } from '../imageProcessor';
+import type { PdfPageRequest, PdfPrinter, PdfResult } from '../pdfPrinter';
 import type { PdfPageImage, PdfThumbnailer } from '../pdfThumbnail';
 import type { PickedFile, PickOutcome } from '../pickerTypes';
 
@@ -130,6 +132,61 @@ export function createFakeFileSharer(): FileSharerFake {
       if (!fake.available) return 'unavailable';
       calls.push({ uri, mimeType });
       return 'shared';
+    },
+  };
+  return fake;
+}
+
+export interface PdfPrinterFake extends PdfPrinter {
+  readonly calls: PdfPageRequest[];
+  /** Set true to simulate a rendering failure. */
+  fail: boolean;
+  /** Pages the fake reports; the real count comes from the print engine. */
+  pages: number;
+}
+
+export function createFakePdfPrinter(options: { readonly pages?: number } = {}): PdfPrinterFake {
+  const calls: PdfPageRequest[] = [];
+  const fake: PdfPrinterFake = {
+    calls,
+    fail: false,
+    pages: options.pages ?? 1,
+    async print(request): Promise<PdfResult> {
+      calls.push(request);
+      if (fake.fail) throw new Error('fake pdf printer failure');
+      return { uri: `file:///fake/cache/Print/${calls.length}.pdf`, numberOfPages: fake.pages };
+    },
+  };
+  return fake;
+}
+
+export interface ExportFilesFake extends ExportFiles {
+  readonly adopted: { tempUri: string; fileName: string }[];
+  /** File names currently in the fake cache folder. */
+  readonly files: string[];
+  /** Total files removed by every `clearPrevious` call. */
+  cleared: number;
+  /** Set true to simulate a file move that fails. */
+  fail: boolean;
+}
+
+export function createFakeExportFiles(initialFiles: readonly string[] = []): ExportFilesFake {
+  const fake: ExportFilesFake = {
+    adopted: [],
+    files: [...initialFiles],
+    cleared: 0,
+    fail: false,
+    async adopt(tempUri, fileName) {
+      if (fake.fail) throw new Error('fake export files failure');
+      fake.adopted.push({ tempUri, fileName });
+      if (!fake.files.includes(fileName)) fake.files.push(fileName);
+      return `file:///fake/cache/exports/${fileName}`;
+    },
+    async clearPrevious() {
+      const removed = fake.files.length;
+      fake.files.length = 0;
+      fake.cleared += removed;
+      return removed;
     },
   };
   return fake;

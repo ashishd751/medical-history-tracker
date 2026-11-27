@@ -4,6 +4,7 @@
  * dependency module import the Expo implementations.
  */
 export { type DocumentPicker, expoDocumentPicker } from './documentPicker';
+export { expoExportFiles, type ExportFiles, EXPORTS_DIR } from './exportFiles';
 export { expoFileSharer, type FileSharer } from './fileSharer';
 export { expoImageLibraryPicker, type ImageLibraryPicker } from './imageLibraryPicker';
 export {
@@ -12,5 +13,6 @@ export {
   type ImageProcessor,
   type ProcessedImage,
 } from './imageProcessor';
+export { expoPdfPrinter, type PdfPageRequest, type PdfPrinter, type PdfResult } from './pdfPrinter';
 export { defaultPdfThumbnailer, type PdfPageImage, type PdfThumbnailer } from './pdfThumbnail';
 export type { PickedFile, PickOutcome } from './pickerTypes';

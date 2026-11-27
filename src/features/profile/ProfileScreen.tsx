@@ -3,12 +3,19 @@ import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { requireRepositories } from '@/data';
-import { BLOOD_TYPES, type BloodType, bmiCategory, computeBmi } from '@/domain';
+import {
+  BLOOD_TYPES,
+  type BloodType,
+  bmiCategory,
+  computeBmi,
+  requiresBloodTypeConfirmation,
+} from '@/domain';
 import { formatDisplayDate, isValidIsoDate } from '@/lib/dates';
 import { useSession } from '@/lib/session';
 import {
   AppBadge,
   AppBanner,
+  AppBloodTypeDialog,
   AppButton,
   AppCard,
   AppChoiceGrid,
@@ -59,8 +66,22 @@ export function ProfileScreen() {
   const [chronic, setChronic] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
+  /** Set while a change to an already-recorded blood type waits for confirmation. */
+  const [bloodTypePending, setBloodTypePending] = useState<{ next: BloodType | null } | null>(null);
 
   const record = person.data;
+
+  const chooseBloodType = (type: BloodType) => {
+    if (!record) return;
+    const next = bloodType === type ? null : type;
+    // The comparison is against the *stored* value: that is what is recorded, and a draft edit
+    // has not been saved yet (ADR-044).
+    if (requiresBloodTypeConfirmation(record.bloodType, next)) {
+      setBloodTypePending({ next });
+      return;
+    }
+    setBloodType(next);
+  };
 
   const openEditor = () => {
     if (!record) return;
@@ -188,7 +209,7 @@ export function ProfileScreen() {
           <AppChoiceGrid
             options={BLOOD_TYPES.map((type) => ({ value: type, label: type }))}
             selected={bloodType}
-            onSelect={(type) => setBloodType(bloodType === type ? null : type)}
+            onSelect={chooseBloodType}
             columns={4}
             testIDPrefix="blood-type"
           />
@@ -205,6 +226,18 @@ export function ProfileScreen() {
           <AppButton label={strings.common.save} onPress={save} fullWidth testID="save-profile" />
         </View>
       </AppSheet>
+
+      <AppBloodTypeDialog
+        visible={bloodTypePending !== null}
+        previous={record.bloodType}
+        next={bloodTypePending?.next ?? null}
+        onConfirm={() => {
+          setBloodType(bloodTypePending?.next ?? null);
+          setBloodTypePending(null);
+        }}
+        onCancel={() => setBloodTypePending(null)}
+        testID="blood-type-dialog"
+      />
     </AppScreen>
   );
 }

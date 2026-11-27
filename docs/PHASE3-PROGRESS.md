@@ -24,7 +24,7 @@ npm run typecheck && npm run lint && npm run deps:check && npm run format:check 
 - [x] **T3** Profile-sync feature service: capture before, diff after, publish the change, undo;
       wired into record create, edit and delete. Real-SQLite tests.
 - [x] **T4** "Profile updated" sheet, transient store, shell host, Undo behaviour. Component tests.
-- [ ] **T5** Blood-type confirmation dialog, wired into the Profile edit sheet. Tests.
+- [x] **T5** Blood-type confirmation dialog, wired into the Profile edit sheet. Tests.
 - [ ] **T6** Profile screen: measurement history, trend, add and delete standalone measurements. Tests.
 - [ ] **T7** Home consistency from the same snapshot source. Tests.
 - [ ] **T8** Maestro flows (weight change → sheet → Undo; backdated → no sheet) if stable on both.
@@ -42,6 +42,7 @@ npm run typecheck && npm run lint && npm run deps:check && npm run format:check 
 | T2   | Migration v3 (`profile_excluded` on `measurement` and `medication`), `measurementRepository.{listByRecord,setProfileExcluded}` + excluded rows never win `latest`, `medicationRepository.listCurrent(personId, today)` with the end-date rule and exclusion, `profileRepository.{snapshot,undo}`, `AppRepositories.profile`. `npx jest src/data` → `14 suites / 127 tests`. Full gate: `39 suites / 269 tests`, `✔ no dependency violations found (158 modules, 378 dependencies cruised)`.   |
 | T3   | `src/features/records/profileSync.ts` (`readProfile`, `undoPlanForRecord`, `buildProfileChangeReport`), `src/lib/profileChangeStore.ts` (`useSyncExternalStore`, no dependency), wired into `RecordFormScreen.onSubmit` (create + edit) and `RecordDetailScreen.remove`. `npx jest src/features/records/profileSync.test.ts` → 5 passed (create/backdated/edit/delete/store). Full gate: `40 suites / 274 tests`, `✔ no dependency violations found (161 modules, 387 dependencies cruised)`. |
 | T4   | `src/ui/components/AppChangeList.tsx`, `src/features/shell/ProfileChangeHost.tsx` (hosted once in `app/_layout.tsx` above the navigator). `npx jest src/features/shell` → 6 passed (empty, old→new rows, undo + confirmation + refresh, failed undo, edit note, delete note). Full gate: `41 suites / 280 tests`, `✔ no dependency violations found (164 modules, 400 dependencies cruised)`.                                                                                                 |
+| T5   | `src/ui/components/AppBloodTypeDialog.tsx` (reusable; the domain decides _whether_ to ask), wired into the Profile edit sheet against the stored value. `npx jest src/ui/components/AppBloodTypeDialog.test.tsx src/features/profile` → 3 + 5 passed (change wording, clear wording, confirm/cancel, ask-then-cancel keeps O+, confirm applies, first-time set silent). Full gate: `42 suites / 286 tests`, `✔ no dependency violations found (166 modules, 406 dependencies cruised)`.       |
 
 ### T0 baseline gate output
 

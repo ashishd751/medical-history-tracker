@@ -108,4 +108,54 @@ describe('ProfileScreen layout', () => {
       expect(screen.getByTestId(`blood-type-${type}`)).toBeTruthy();
     }
   });
+
+  it('asks before replacing a recorded blood type, and keeps it on cancel', async () => {
+    await renderProfile();
+    await waitFor(() => expect(screen.getByText(person.name)).toBeTruthy());
+    await fireEvent.press(screen.getByText(strings.profile.editProfile));
+
+    await fireEvent.press(await screen.findByTestId('blood-type-A-'));
+
+    expect(await screen.findByTestId('blood-type-dialog')).toBeTruthy();
+    expect(screen.getByText(strings.profile.bloodTypeChangeBody('O+', 'A-'))).toBeTruthy();
+
+    await fireEvent.press(screen.getByText(strings.common.cancel));
+
+    expect(screen.getByTestId('blood-type-O+').props.accessibilityState).toEqual({
+      selected: true,
+    });
+    expect(screen.getByTestId('blood-type-A-').props.accessibilityState).toEqual({
+      selected: false,
+    });
+  });
+
+  it('applies the new group once the change is confirmed', async () => {
+    await renderProfile();
+    await waitFor(() => expect(screen.getByText(person.name)).toBeTruthy());
+    await fireEvent.press(screen.getByText(strings.profile.editProfile));
+
+    await fireEvent.press(await screen.findByTestId('blood-type-A-'));
+    await fireEvent.press(await screen.findByText(strings.profile.bloodTypeChangeConfirm));
+
+    expect(screen.getByTestId('blood-type-A-').props.accessibilityState).toEqual({
+      selected: true,
+    });
+  });
+
+  it('sets a blood type for the first time without asking', async () => {
+    mockRequireRepositories.mockReturnValue({
+      people: { getById: () => ({ ...person, bloodType: null }) },
+      measurements: { latestVitals: () => ({ height: { v1: 172 }, weight: { v1: 70 } }) },
+    } as unknown as AppRepositories);
+    await renderProfile();
+    await waitFor(() => expect(screen.getByText(person.name)).toBeTruthy());
+    await fireEvent.press(screen.getByText(strings.profile.editProfile));
+
+    await fireEvent.press(await screen.findByTestId('blood-type-A+'));
+
+    expect(screen.queryByTestId('blood-type-dialog')).toBeNull();
+    expect(screen.getByTestId('blood-type-A+').props.accessibilityState).toEqual({
+      selected: true,
+    });
+  });
 });

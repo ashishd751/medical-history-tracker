@@ -21,6 +21,8 @@ export {
   bloodTypeLabel,
   bmiCategoryLabel,
   bpCategoryLabel,
+  exportColumnLabel,
+  exportVitalLabel,
   measurementKindLabel,
   medicationStatusLabel,
   readingFlagLabel,

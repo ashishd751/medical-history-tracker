@@ -17,7 +17,7 @@ npm run typecheck && npm run lint && npm run deps:check && npm run format:check 
 ## Checklist
 
 - [x] **T0** Branch, this file, baseline gate (expect 44 suites / 312 tests), commit.
-- [ ] **T1** Domain: column model, sorting, HTML escaping, `buildExportHtml`, orientation, footer and
+- [x] **T1** Domain: column model, sorting, HTML escaping, `buildExportHtml`, orientation, footer and
       profile header. Tests (defaults, 0/1/many rows, hostile input, long words, Hindi, emoji).
 - [ ] **T2** Data and settings: bulk export loader (batched, no cap) and the export preference keys
       with Zod fallbacks. Real-SQLite tests, including 1,000 synthetic records and a query count.
@@ -36,10 +36,20 @@ npm run typecheck && npm run lint && npm run deps:check && npm run format:check 
 
 ## Evidence log
 
-| Task | Evidence                                                                                                                                                                                                     |
-| ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| T0   | `git checkout -b feat/phase-4-pdf-export` from `b97df52`; baseline gate `EXIT=0`: `✔ no dependency violations found (172 modules, 423 dependencies cruised)`, `Test Suites: 44 passed`, `Tests: 312 passed`. |
+| Task | Evidence                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| T0   | `git checkout -b feat/phase-4-pdf-export` from `b97df52`; baseline gate `EXIT=0`: `✔ no dependency violations found (172 modules, 423 dependencies cruised)`, `Test Suites: 44 passed`, `Tests: 312 passed`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| T1   | `src/domain/export/{model,html}.ts` (columns, canonical order, A4 sizes, orientation, widths, sorting, escaping, `buildExportHtml`), `src/domain/age.ts`, `src/features/export/exportFormat.ts` (cells, facts, range), new `strings.export` + `exportColumnLabel`/`exportVitalLabel`. `npx jest src/domain/export src/domain/age.test.ts src/features/export` → `4 suites / 86 tests`. Full gate: `48 suites / 398 tests`, `✔ no dependency violations found (181 modules, 439 dependencies cruised)`. Two test-only expectations were wrong (170 cm is 5 ft 7 in; BMI 24.2 is _Overweight_ on the Asian preset) and one real bug was fixed: a one-sided reference range printed `(40––)`. |
 
 ## Decisions taken without asking
 
 _(each one links to its ADR once written)_
+
+- The PDF's **layout** (columns, escaping, sorting, page size) is pure domain code, but the **cell
+  text** lives in `src/features/export/exportFormat.ts`: formatting a height needs `cm`/`ft` and a
+  measurement needs its label, and the domain layer owns no display string (ADR-047).
+- A **Record** column (the record's title) is added as a thirteenth, optional column. FR-10's list
+  omits the title, which is the only field that names a lab panel or a vaccination, so the default
+  export of a `lab_test` would not say what was tested. Defaults stay exactly as FR-10 lists them.
+- A High/Low flag is written as the word (`— High`); `Normal` and `Not flagged` are omitted from the
+  compact cell so the two abnormal results in a panel are the ones the eye lands on.

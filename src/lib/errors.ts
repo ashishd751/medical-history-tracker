@@ -17,7 +17,8 @@ export type AppErrorCode =
   | 'VALIDATION_FAILED'
   | 'IMPORT_INVALID'
   | 'BACKUP_CHECKSUM'
-  | 'RECOGNITION_FAILED';
+  | 'RECOGNITION_FAILED'
+  | 'EXPORT_FAILED';
 
 export interface AppError {
   readonly code: AppErrorCode;
@@ -49,6 +50,7 @@ const userMessages: Record<AppErrorCode, string> = {
   IMPORT_INVALID: strings.errors.importInvalid,
   BACKUP_CHECKSUM: strings.errors.backupChecksum,
   RECOGNITION_FAILED: strings.errors.unknown,
+  EXPORT_FAILED: strings.errors.exportFailed,
 };
 
 /** Maps an AppError to a friendly sentence safe to render. */

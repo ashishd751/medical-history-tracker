@@ -84,6 +84,8 @@ export const medication = sqliteTable(
     notes: text('notes').notNull().default(''),
     source: text('source').$type<DataSource>().notNull().default('manual'),
     reviewedAt: integer('reviewed_at'),
+    /** 1 when Undo took this row out of the profile; it stays on the record (ADR-039). */
+    profileExcluded: integer('profile_excluded', { mode: 'boolean' }).notNull().default(false),
   },
   (table) => [index('medication_person_id_status_idx').on(table.personId, table.status)],
 );
@@ -120,6 +122,8 @@ export const measurement = sqliteTable(
     v2: real('v2'),
     measuredOn: text('measured_on').notNull(),
     createdAt: integer('created_at').notNull(),
+    /** 1 when Undo took this row out of the profile; it stays in the history (ADR-039). */
+    profileExcluded: integer('profile_excluded', { mode: 'boolean' }).notNull().default(false),
   },
   (table) => [
     index('measurement_person_id_kind_measured_on_idx').on(

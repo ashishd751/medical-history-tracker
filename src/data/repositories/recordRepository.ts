@@ -207,6 +207,7 @@ export function createRecordRepository(
           notes: item.notes?.trim() ?? '',
           source: item.source ?? 'manual',
           reviewedAt: now,
+          profileExcluded: false,
         })
         .run();
     }
@@ -242,6 +243,7 @@ export function createRecordRepository(
           v2: item.v2 ?? null,
           measuredOn: input.date,
           createdAt: now,
+          profileExcluded: false,
         })
         .run();
     }
